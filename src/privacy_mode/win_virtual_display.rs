@@ -417,8 +417,23 @@ impl PrivacyModeImpl {
             // No need to restore the virtual displays. It's easy to notice that the virtual displays are plugged out.
             let _ = virtual_display_manager::plug_out_monitor(-1, true, false);
 
-            // We can't replug the virtual dislays here.
-            // TODO: plug out + plug in the virtual displays (`IDD_IMPL_AMYUNI`) in a short time makes the server side crash.
+            // We can't replug the virtual displays here.
+            // plug out + plug in the virtual displays (`IDD_IMPL_AMYUNI`) in a short time makes the server side crash.
+            // A cooldown delay ensures the driver stack stabilizes before any subsequent plug-in.
+            Self::cooldown_after_plug_out();
+        }
+    }
+
+    /// Amyuni IDD driver requires a cooldown period after plug-out before any
+    /// subsequent plug-in operation. Rapid plug-out + plug-in cycles can crash
+    /// the driver stack (BSOD or server crash).
+    ///
+    /// Call this after any plug-out that might be followed by a plug-in,
+    /// particularly in the Amyuni IDD implementation path.
+    #[inline]
+    fn cooldown_after_plug_out() {
+        if virtual_display_manager::is_amyuni_idd() {
+            thread::sleep(Duration::from_secs(2));
         }
     }
 
@@ -574,6 +589,10 @@ pub fn restore_reg_connectivity(plug_out_monitors: bool, force: bool) {
     }
     if plug_out_monitors {
         let _ = virtual_display_manager::plug_out_monitor(-1, true, false);
+        // Cooldown to prevent crash on rapid plug-out/plug-in cycles (Amyuni IDD).
+        if virtual_display_manager::is_amyuni_idd() {
+            std::thread::sleep(Duration::from_secs(2));
+        }
     }
     if let Ok(reg_recovery) =
         serde_json::from_str::<reg_display_settings::RegRecovery>(&config_recovery_value)
