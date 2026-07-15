@@ -122,6 +122,10 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
 
   // FIXME: This debounce logic is not working properly.
   // If we move our finger very fast, we won't be able to detect the "oneFingerPan" event sometimes.
+  // Root cause: the 200ms debounce timer in onEnd() delays _currentState reset, and the
+  // start-debounce then defers recognition further, causing missed events during fast gestures.
+  // Fix: start the new gesture immediately instead of deferring via debounce, since Flutter's
+  // gesture arena already handles intra-gesture disambiguation.
   void onOneFingerStartDebounce(ScaleUpdateDetails d) {
     start(ScaleUpdateDetails d) {
       _currentState = GestureState.oneFingerPan;
@@ -131,15 +135,11 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       }
     }
 
-    if (_currentState != GestureState.none) {
-      _debounceTimer = Timer(Duration(milliseconds: 200), () {
-        start(d);
-        debugPrint("debounce start oneFingerPan");
-      });
-    } else {
-      start(d);
-      debugPrint("start oneFingerPan");
-    }
+    // Start immediately. The gesture arena ensures correct arbitration,
+    // and deferring here (via debounce timer) causes missed detections
+    // when fingers move quickly through the transition window.
+    start(d);
+    debugPrint("start oneFingerPan");
   }
 
   void onTwoFingerStartDebounce(ScaleUpdateDetails d) {
@@ -151,15 +151,11 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       }
     }
 
-    if (_currentState == GestureState.threeFingerVerticalDrag) {
-      _debounceTimer = Timer(Duration(milliseconds: 200), () {
-        start(d);
-        debugPrint("debounce start twoFingerScale");
-      });
-    } else {
-      start(d);
-      debugPrint("start twoFingerScale");
-    }
+    // Start immediately for the same reason as onOneFingerStartDebounce.
+    // Deferring via debounce timer causes missed scale detections when
+    // finger count transitions rapidly (e.g. 3→2 fingers).
+    start(d);
+    debugPrint("start twoFingerScale");
   }
 
   DragUpdateDetails _getDragUpdateDetails(ScaleUpdateDetails d) =>
