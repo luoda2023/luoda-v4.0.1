@@ -537,20 +537,27 @@ class InputModel {
 
   void handleKeyDownEventModifiers(KeyEvent e) {
     KeyUpEvent upEvent(e) => KeyUpEvent(
-          physicalKey: e.physicalKey,
-          logicalKey: e.logicalKey,
-          timeStamp: e.timeStamp,
-        );
+        physicalKey: e.physicalKey,
+        logicalKey: e.logicalKey,
+        timeStamp: e.timeStamp,
+    );
     if (e.logicalKey == LogicalKeyboardKey.altLeft) {
       if (!alt) {
         alt = true;
       }
       toReleaseKeys.lastLAltKeyEvent = upEvent(e);
     } else if (e.logicalKey == LogicalKeyboardKey.altRight) {
-      if (!alt) {
-        alt = true;
+      // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
+      // while `Alt` and `Control` are seperated key events for en-US input method.
+      // AltGr on Windows produces controlLeft + altRight as separate events.
+      // If control is already pressed when altRight arrives, this is AltGr.
+      // Skip setting alt=true to avoid sending spurious Ctrl+Alt modifiers.
+      if (!_isAltGrOnWindows(e)) {
+        if (!alt) {
+          alt = true;
+        }
+        toReleaseKeys.lastLAltKeyEvent = upEvent(e);
       }
-      toReleaseKeys.lastLAltKeyEvent = upEvent(e);
     } else if (e.logicalKey == LogicalKeyboardKey.controlLeft) {
       if (!ctrl) {
         ctrl = true;
@@ -594,7 +601,11 @@ class InputModel {
       alt = false;
       toReleaseKeys.lastLAltKeyEvent = null;
     } else if (e.logicalKey == LogicalKeyboardKey.altRight) {
-      alt = false;
+      // Only clear alt on altRight release if this wasn't an AltGr press.
+      // For AltGr the alt flag was never set, so we should not clear it here.
+      if (!_isAltGrOnWindows(e)) {
+        alt = false;
+      }
       toReleaseKeys.lastRAltKeyEvent = null;
     } else if (e.logicalKey == LogicalKeyboardKey.controlLeft) {
       ctrl = false;
@@ -618,6 +629,33 @@ class InputModel {
       command = false;
       toReleaseKeys.lastSuperKeyEvent = null;
     }
+  }
+
+  /// Detect AltGr on Windows via the key event pattern.
+  ///
+  /// On Windows, AltGr generates VK_RMENU (right Alt) plus a spurious
+  /// VK_LCONTROL (left Control). Flutter delivers these as two separate
+  /// KeyEvents: controlLeft down (or up) followed by altRight.
+  ///
+  /// When altRight fires and isControlPressed is already true, this is AltGr.
+  /// When controlLeft fires and isAltPressed is already true, this is the
+  /// complementary half of the same AltGr event.
+  ///
+  /// On Linux, AltGr is a distinct key (ISO Level3 Shift) that does NOT
+  /// split into Ctrl+Alt, so this check only applies on Windows.
+  bool _isAltGrOnWindows(KeyEvent e) {
+    if (!isWindows) return false;
+    if (e.logicalKey == LogicalKeyboardKey.altRight &&
+        HardwareKeyboard.instance.isControlPressed) {
+      return true;
+    }
+    // The spurious controlLeft from AltGr arrives when alt is already held.
+    // Detect this case to keep the modifier flags consistent.
+    if (e.logicalKey == LogicalKeyboardKey.controlLeft &&
+        HardwareKeyboard.instance.isAltPressed) {
+      return true;
+    }
+    return false;
   }
 
   KeyEventResult handleRawKeyEvent(RawKeyEvent e) {

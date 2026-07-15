@@ -30,8 +30,9 @@ class RawKeyFocusScope extends StatelessWidget {
   Widget build(BuildContext context) {
     // https://github.com/flutter/flutter/issues/154053
     final useRawKeyEvents = isLinux && !isWeb;
-    // FIXME: On Windows, `AltGr` will generate `Alt` and `Control` key events,
-    // while `Alt` and `Control` are seperated key events for en-US input method.
+    // AltGr on Windows is now handled by InputModel's _isAltGrOnWindows() which
+    // detects the spurious controlLeft + altRight event pair and skips setting
+    // the alt modifier flag, avoiding incorrect Ctrl+Alt modifier sending.
     return FocusScope(
         autofocus: true,
         child: Focus(
