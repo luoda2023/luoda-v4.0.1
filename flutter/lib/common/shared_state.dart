@@ -3,75 +3,52 @@ import 'package:get/get.dart';
 
 import '../consts.dart';
 
-// TODO: A lot of dup code.
+// Generic helper to reduce repetitive init/delete/find boilerplate.
+// Usage: SharedStateHelper<RxString>('privacy_mode', '').init(id)
+class _SharedStateHelper<T> {
+  final String _tagBase;
+  final T Function() _defaultValue;
+  _SharedStateHelper(this._tagBase, this._defaultValue);
+
+  String tag(String id) => '${_tagBase}_$id';
+
+  void init(String id) {
+    if (!Get.isRegistered<T>(tag: tag(id))) {
+      Get.put<T>(_defaultValue(), tag: tag(id));
+    }
+  }
+
+  void delete(String id) {
+    if (Get.isRegistered<T>(tag: tag(id))) {
+      Get.delete<T>(tag: tag(id));
+    }
+  }
+
+  T find(String id) => Get.find<T>(tag: tag(id));
+}
 
 class PrivacyModeState {
-  static String tag(String id) => 'privacy_mode_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxString>(tag: key)) {
-      final RxString state = ''.obs;
-      Get.put<RxString>(state, tag: key);
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxString>(tag: key)) {
-      Get.delete<RxString>(tag: key);
-    } else {
-      Get.find<RxString>(tag: key).value = '';
-    }
-  }
-
-  static RxString find(String id) => Get.find<RxString>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxString>('privacy_mode', () => ''.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxString find(String id) => _h.find(id);
 }
 
 class BlockInputState {
-  static String tag(String id) => 'block_input_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxBool>(tag: key)) {
-      final RxBool state = false.obs;
-      Get.put<RxBool>(state, tag: key);
-    } else {
-      Get.find<RxBool>(tag: key).value = false;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxBool>(tag: key)) {
-      Get.delete<RxBool>(tag: key);
-    }
-  }
-
-  static RxBool find(String id) => Get.find<RxBool>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxBool>('block_input', () => false.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxBool find(String id) => _h.find(id);
 }
 
 class CurrentDisplayState {
-  static String tag(String id) => 'current_display_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxInt>(tag: key)) {
-      final RxInt state = RxInt(0);
-      Get.put<RxInt>(state, tag: key);
-    } else {
-      Get.find<RxInt>(tag: key).value = 0;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxInt>(tag: key)) {
-      Get.delete<RxInt>(tag: key);
-    }
-  }
-
-  static RxInt find(String id) => Get.find<RxInt>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxInt>('current_display', () => RxInt(0));
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxInt find(String id) => _h.find(id);
 }
 
 class ConnectionType {
@@ -108,164 +85,59 @@ class ConnectionType {
 }
 
 class ConnectionTypeState {
-  static String tag(String id) => 'connection_type_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<ConnectionType>(tag: key)) {
-      final ConnectionType collectionType = ConnectionType();
-      Get.put<ConnectionType>(collectionType, tag: key);
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<ConnectionType>(tag: key)) {
-      Get.delete<ConnectionType>(tag: key);
-    }
-  }
-
-  static ConnectionType find(String id) =>
-      Get.find<ConnectionType>(tag: tag(id));
+  static final _h = _SharedStateHelper<ConnectionType>('connection_type', () => ConnectionType());
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static ConnectionType find(String id) => _h.find(id);
 }
 
 class FingerprintState {
-  static String tag(String id) => 'fingerprint_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxString>(tag: key)) {
-      final RxString state = ''.obs;
-      Get.put<RxString>(state, tag: key);
-    } else {
-      Get.find<RxString>(tag: key).value = '';
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxString>(tag: key)) {
-      Get.delete<RxString>(tag: key);
-    }
-  }
-
-  static RxString find(String id) => Get.find<RxString>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxString>('fingerprint', () => ''.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxString find(String id) => _h.find(id);
 }
 
 class ShowRemoteCursorState {
-  static String tag(String id) => 'show_remote_cursor_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxBool>(tag: key)) {
-      final RxBool state = false.obs;
-      Get.put<RxBool>(state, tag: key);
-    } else {
-      Get.find<RxBool>(tag: key).value = false;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxBool>(tag: key)) {
-      Get.delete<RxBool>(tag: key);
-    }
-  }
-
-  static RxBool find(String id) => Get.find<RxBool>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxBool>('show_remote_cursor', () => false.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxBool find(String id) => _h.find(id);
 }
 
 class ShowRemoteCursorLockState {
-  static String tag(String id) => 'show_remote_cursor_lock_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxBool>(tag: key)) {
-      final RxBool state = false.obs;
-      Get.put<RxBool>(state, tag: key);
-    } else {
-      Get.find<RxBool>(tag: key).value = false;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxBool>(tag: key)) {
-      Get.delete<RxBool>(tag: key);
-    }
-  }
-
-  static RxBool find(String id) => Get.find<RxBool>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxBool>('show_remote_cursor_lock', () => false.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxBool find(String id) => _h.find(id);
 }
 
 class KeyboardEnabledState {
-  static String tag(String id) => 'keyboard_enabled_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxBool>(tag: key)) {
-      // Server side, default true
-      final RxBool state = true.obs;
-      Get.put<RxBool>(state, tag: key);
-    } else {
-      Get.find<RxBool>(tag: key).value = true;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxBool>(tag: key)) {
-      Get.delete<RxBool>(tag: key);
-    }
-  }
-
-  static RxBool find(String id) => Get.find<RxBool>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxBool>('keyboard_enabled', () => true.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxBool find(String id) => _h.find(id);
 }
 
 class RemoteCursorMovedState {
-  static String tag(String id) => 'remote_cursor_moved_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxBool>(tag: key)) {
-      final RxBool state = false.obs;
-      Get.put<RxBool>(state, tag: key);
-    } else {
-      Get.find<RxBool>(tag: key).value = false;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxBool>(tag: key)) {
-      Get.delete<RxBool>(tag: key);
-    }
-  }
-
-  static RxBool find(String id) => Get.find<RxBool>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxBool>('remote_cursor_moved', () => false.obs);
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxBool find(String id) => _h.find(id);
 }
 
 class RemoteCountState {
-  static String tag() => 'remote_count_';
-
-  static void init() {
-    final key = tag();
-    if (!Get.isRegistered<RxInt>(tag: key)) {
-      final RxInt state = 1.obs;
-      Get.put<RxInt>(state, tag: key);
-    } else {
-      Get.find<RxInt>(tag: key).value = 1;
-    }
-  }
-
-  static void delete() {
-    final key = tag();
-    if (Get.isRegistered<RxInt>(tag: key)) {
-      Get.delete<RxInt>(tag: key);
-    }
-  }
-
-  static RxInt find() => Get.find<RxInt>(tag: tag());
+  static final _h = _SharedStateHelper<RxInt>('remote_count_', () => 1.obs);
+  static String tag() => _h.tag('');
+  static void init() => _h.init('');
+  static void delete() => _h.delete('');
+  static RxInt find() => _h.find('');
 }
 
 class PeerBoolOption {
@@ -317,26 +189,11 @@ class PeerStringOption {
 }
 
 class UnreadChatCountState {
-  static String tag(id) => 'unread_chat_count_$id';
-
-  static void init(String id) {
-    final key = tag(id);
-    if (!Get.isRegistered<RxInt>(tag: key)) {
-      final RxInt state = RxInt(0);
-      Get.put<RxInt>(state, tag: key);
-    } else {
-      Get.find<RxInt>(tag: key).value = 0;
-    }
-  }
-
-  static void delete(String id) {
-    final key = tag(id);
-    if (Get.isRegistered<RxInt>(tag: key)) {
-      Get.delete<RxInt>(tag: key);
-    }
-  }
-
-  static RxInt find(String id) => Get.find<RxInt>(tag: tag(id));
+  static final _h = _SharedStateHelper<RxInt>('unread_chat_count', () => RxInt(0));
+  static String tag(String id) => _h.tag(id);
+  static void init(String id) => _h.init(id);
+  static void delete(String id) => _h.delete(id);
+  static RxInt find(String id) => _h.find(id);
 }
 
 initSharedStates(String id) {
