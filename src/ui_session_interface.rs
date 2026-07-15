@@ -1094,45 +1094,45 @@ impl<T: InvokeUiSession> Session<T> {
             usb_hid: 0,
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             extra_data: 0,
-    };
-    keyboard::client::process_event_with_session(keyboard_mode, &event, Some(lock_modes), self);
-}
+        };
+        keyboard::client::process_event_with_session(keyboard_mode, &event, Some(lock_modes), self);
+    }
 
-/// Heuristic dead-key detection for characters received from Flutter's KeyEvent API.
-///
-/// Flutter's KeyEvent.character does not distinguish dead keys from regular keys.
-/// On Windows, dead keys (e.g. '^', '´', '`' on German/French keyboards) produce
-/// the combining diacritic character as a single-character string. Without this
-/// detection, translate-keyboard-mode would emit the dead key as a literal
-/// character rather than deferring to the composing IME, causing the user to see
-/// "´e" instead of "é".
-///
-/// We detect dead keys by checking if the string is a single Unicode combining
-/// character or a known spacing dead-key character.
-fn is_dead_key_character(chars: &[char]) -> bool {
-    if chars.len() != 1 {
-        return false;
-    }
-    let c = chars[0];
-    let code = c as u32;
-    // Unicode Combining Diacritical Marks block: U+0300–U+036F
-    if (0x0300..=0x036F).contains(&code) {
-        return true;
-    }
-    // Combining Diacritical Marks Extended: U+1AB0–U+1AFF
-    if (0x1AB0..=0x1AFF).contains(&code) {
-        return true;
-    }
-    // Combining Diacritical Marks Supplement: U+1DC0–U+1DFF
-    if (0x1DC0..=0x1DFF).contains(&code) {
-        return true;
-    }
-    // Spacing modifier letters used as dead keys on various keyboard layouts.
-    // These are "spacing" (non-combining) forms that keyboard layouts produce
-    // when the user presses a dead key without a following base character.
-    matches!(
-        c,
-        '^'  // U+005E CIRCUMFLEX ACCENT (dead ^ on German/French keyboards)
+    /// Heuristic dead-key detection for characters received from Flutter's KeyEvent API.
+    ///
+    /// Flutter's KeyEvent.character does not distinguish dead keys from regular keys.
+    /// On Windows, dead keys (e.g. '^', '´', '`' on German/French keyboards) produce
+    /// the combining diacritic character as a single-character string. Without this
+    /// detection, translate-keyboard-mode would emit the dead key as a literal
+    /// character rather than deferring to the composing IME, causing the user to see
+    /// "´e" instead of "é".
+    ///
+    /// We detect dead keys by checking if the string is a single Unicode combining
+    /// character or a known spacing dead-key character.
+    fn is_dead_key_character(chars: &[char]) -> bool {
+        if chars.len() != 1 {
+            return false;
+        }
+        let c = chars[0];
+        let code = c as u32;
+        // Unicode Combining Diacritical Marks block: U+0300–U+036F
+        if (0x0300..=0x036F).contains(&code) {
+            return true;
+        }
+        // Combining Diacritical Marks Extended: U+1AB0–U+1AFF
+        if (0x1AB0..=0x1AFF).contains(&code) {
+            return true;
+        }
+        // Combining Diacritical Marks Supplement: U+1DC0–U+1DFF
+        if (0x1DC0..=0x1DFF).contains(&code) {
+            return true;
+        }
+        // Spacing modifier letters used as dead keys on various keyboard layouts.
+        // These are "spacing" (non-combining) forms that keyboard layouts produce
+        // when the user presses a dead key without a following base character.
+        matches!(
+            c,
+            '^'  // U+005E CIRCUMFLEX ACCENT (dead ^ on German/French keyboards)
         | '`'  // U+0060 GRAVE ACCENT (dead ` on Italian/French keyboards)
         | '~'  // U+007E TILDE (dead ~ on Spanish keyboards)
         | '\u{00A8}' // U+00A8 DIAERESIS (dead ¨ on German/QWERTZ keyboards)
@@ -1150,10 +1150,10 @@ fn is_dead_key_character(chars: &[char]) -> bool {
         | '\u{02DB}' // U+02DB OGONEK (˛)
         | '\u{02DC}' // U+02DC SMALL TILDE (˜)
         | '\u{02DD}' // U+02DD DOUBLE ACUTE ACCENT (˝)
-    )
-}
+        )
+    }
 
-// flutter only TODO new input
+    // flutter only TODO new input
     fn _input_key(
         &self,
         key: Key,

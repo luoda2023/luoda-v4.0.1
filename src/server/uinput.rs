@@ -100,12 +100,12 @@ pub mod client {
             allow_err!(self.send(Data::Keyboard(DataKeyboard::Sequence(sequence.to_string()))));
         }
 
-    // TODO: handle error???
-    fn key_down(&mut self, key: Key) -> enigo::ResultType {
-        self.send(Data::Keyboard(DataKeyboard::KeyDown(key)))
-            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
-        Ok(())
-    }
+        // TODO: handle error???
+        fn key_down(&mut self, key: Key) -> enigo::ResultType {
+            self.send(Data::Keyboard(DataKeyboard::KeyDown(key)))
+                .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+            Ok(())
+        }
         fn key_up(&mut self, key: Key) {
             allow_err!(self.send(Data::Keyboard(DataKeyboard::KeyUp(key))));
         }
@@ -150,12 +150,12 @@ pub mod client {
         fn mouse_move_relative(&mut self, x: i32, y: i32) {
             allow_err!(self.send(Data::Mouse(DataMouse::MoveRelative(x, y))));
         }
-    // TODO: handle error???
-    fn mouse_down(&mut self, button: MouseButton) -> enigo::ResultType {
-        self.send(Data::Mouse(DataMouse::Down(button)))
-            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
-        Ok(())
-    }
+        // TODO: handle error???
+        fn mouse_down(&mut self, button: MouseButton) -> enigo::ResultType {
+            self.send(Data::Mouse(DataMouse::Down(button)))
+                .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+            Ok(())
+        }
         fn mouse_up(&mut self, button: MouseButton) {
             allow_err!(self.send(Data::Mouse(DataMouse::Up(button))));
         }
@@ -604,7 +604,10 @@ pub mod service {
             }
             DataKeyboard::KeyDown(enigo::Key::Raw(code)) => {
                 if *code < 8 {
-                    log::error!("Invalid Raw keycode {} (must be >= 8 due to XKB offset), skipping", code);
+                    log::error!(
+                        "Invalid Raw keycode {} (must be >= 8 due to XKB offset), skipping",
+                        code
+                    );
                 } else {
                     let down_event = InputEvent::new(EventType::KEY, *code - 8, 1);
                     allow_err!(keyboard.emit(&[down_event]));
@@ -612,7 +615,10 @@ pub mod service {
             }
             DataKeyboard::KeyUp(enigo::Key::Raw(code)) => {
                 if *code < 8 {
-                    log::error!("Invalid Raw keycode {} (must be >= 8 due to XKB offset), skipping", code);
+                    log::error!(
+                        "Invalid Raw keycode {} (must be >= 8 due to XKB offset), skipping",
+                        code
+                    );
                 } else {
                     let up_event = InputEvent::new(EventType::KEY, *code - 8, 0);
                     allow_err!(keyboard.emit(&[up_event]));
