@@ -3777,10 +3777,13 @@ class FFI {
     if (isDesktop && connType == ConnType.defaultConn) {
       textureModel.updateCurrentDisplay(display ?? 0);
     }
-    // FIXME: separate cameras displays or shift all indices.
-    if (isDesktop && connType == ConnType.viewCamera) {
-      // FIXME: currently the default 0 is not used.
-      textureModel.updateCurrentDisplay(display ?? 0);
+    // Camera displays use a separate index space — only update when
+    // a specific display index is provided. A null display means the
+    // camera window was opened without a target display, so skip the
+    // texture update entirely to avoid creating a texture for index 0
+    // which may not correspond to any camera source.
+    if (isDesktop && connType == ConnType.viewCamera && display != null) {
+      textureModel.updateCurrentDisplay(display);
     }
 
     if (isDesktop) {

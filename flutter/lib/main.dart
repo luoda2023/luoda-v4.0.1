@@ -263,13 +263,12 @@ void runMultiWindow(
     case kAppTypeDesktopViewCamera:
       // If screen rect is set, the window will be moved to the target screen and then set fullscreen.
       if (argument['screen_rect'] == null) {
-        // display can be used to control the offset of the window.
+        // Camera view uses a separate display index for the video source,
+        // not the physical display. Do not pass it as a window offset.
         await restoreWindowPosition(
           WindowType.ViewCamera,
           windowId: kWindowId!,
           peerId: argument['id'] as String?,
-          // FIXME: fix display index.
-          display: argument['display'] as int?,
         );
       }
       break;
