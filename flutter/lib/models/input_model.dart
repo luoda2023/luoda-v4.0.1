@@ -794,8 +794,12 @@ class InputModel {
     }
     final isDesktopAndMapMode =
         isDesktop || (isWebDesktop && keyboardMode == kKeyMapMode);
-    if (isMobileAndMapMode || isDesktopAndMapMode) {
-      // FIXME: e.character is wrong for dead keys, eg: ^ in de
+  if (isMobileAndMapMode || isDesktopAndMapMode) {
+    // Dead key handling: Flutter's KeyEvent.character does not distinguish
+    // dead keys (e.g. '^' on German keyboard). The Rust side now applies a
+    // heuristic (is_dead_key_character in ui_session_interface.rs) to detect
+    // common dead-key diacritical marks, so the translate-mode pipeline can
+    // correctly suppress the dead key and wait for the composing character.
       newKeyboardMode(
           e.character ?? '',
           e.physicalKey.usbHidUsage & 0xFFFF,
