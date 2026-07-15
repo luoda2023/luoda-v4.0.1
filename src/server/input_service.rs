@@ -605,8 +605,11 @@ static mut VIRTUAL_INPUT_STATE: Option<VirtualInputState> = None;
 // Thus this function must not be called in a temporary runtime.
 #[cfg(target_os = "linux")]
 pub async fn setup_uinput(minx: i32, maxx: i32, miny: i32, maxy: i32) -> ResultType<()> {
-    // Keyboard and mouse both open /dev/uinput
-    // TODO: Make sure there's no race
+    // Acquire the ENIGO lock first to prevent races between concurrent
+    // setup_uinput calls. Both set_uinput_resolution and UInput*::new()
+    // may open /dev/uinput, and without serialization two concurrent
+    // callers could create duplicate uinput device files.
+    let mut en = ENIGO.lock().unwrap();
     set_uinput_resolution(minx, maxx, miny, maxy).await?;
 
     let keyboard = super::uinput::client::UInputKeyboard::new().await?;
@@ -614,11 +617,9 @@ pub async fn setup_uinput(minx: i32, maxx: i32, miny: i32, maxy: i32) -> ResultT
     let mouse = super::uinput::client::UInputMouse::new().await?;
     log::info!("UInput mouse created");
 
-    ENIGO
-        .lock()
-        .unwrap()
-        .set_custom_keyboard(Box::new(keyboard));
-    ENIGO.lock().unwrap().set_custom_mouse(Box::new(mouse));
+    en.set_custom_keyboard(Box::new(keyboard));
+    en.set_custom_mouse(Box::new(mouse));
+    drop(en);
     Ok(())
 }
 
