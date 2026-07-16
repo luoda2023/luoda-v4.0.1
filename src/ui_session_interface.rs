@@ -1082,7 +1082,7 @@ impl<T: InvokeUiSession> Session<T> {
                     // a single non-letter/non-digit grapheme known as a diacritical
                     // mark, treat it as a dead key so the translate-mode pipeline
                     // can handle it correctly.
-                    is_dead: is_dead_key_character(&chars),
+                    is_dead: Self::is_dead_key_character(&chars),
                 })
             },
             platform_code,

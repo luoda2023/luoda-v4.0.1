@@ -103,7 +103,7 @@ pub mod client {
         // TODO: handle error???
         fn key_down(&mut self, key: Key) -> enigo::ResultType {
             self.send(Data::Keyboard(DataKeyboard::KeyDown(key)))
-                .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+                .map_err(|e| -> Box<dyn std::error::Error> { e.to_string().into() })?;
             Ok(())
         }
         fn key_up(&mut self, key: Key) {
@@ -153,7 +153,7 @@ pub mod client {
         // TODO: handle error???
         fn mouse_down(&mut self, button: MouseButton) -> enigo::ResultType {
             self.send(Data::Mouse(DataMouse::Down(button)))
-                .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+                .map_err(|e| -> Box<dyn std::error::Error> { e.to_string().into() })?;
             Ok(())
         }
         fn mouse_up(&mut self, button: MouseButton) {
