@@ -18,6 +18,7 @@ import '../../consts.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../widgets/dialog.dart';
+import 'package:luoda_flutter/mobile/widgets/permission_setup.dart';
 import 'home_page.dart';
 import 'scan_page.dart';
 
@@ -1156,6 +1157,12 @@ class __DisplayPageState extends State<_DisplayPage> {
       body: SettingsList(sections: [
         SettingsSection(
           tiles: [
+            SettingsTile(
+              leading: const Icon(Icons.verified_user),
+              title: const Text('授权中心'),
+              description: const Text('一次性完成全部所需权限，避免使用中反复弹窗'),
+              onPressed: (ctx) => showPermissionSetup(ctx),
+            ),
             _getPopupDialogRadioEntry(
               title: 'Default View Style',
               list: [

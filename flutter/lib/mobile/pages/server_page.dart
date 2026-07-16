@@ -14,6 +14,7 @@ import '../../consts.dart';
 import '../../models/platform_model.dart';
 import '../../models/server_model.dart';
 import 'home_page.dart';
+import 'package:luoda_flutter/mobile/widgets/permission_setup.dart';
 
 class ServerPage extends StatefulWidget implements PageShape {
   @override
@@ -189,6 +190,11 @@ class _ServerPageState extends State<ServerPage> {
       await gFFI.serverModel.fetchID();
     });
     gFFI.serverModel.checkAndroidPermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (await getPermissionSetupState() == 'none') {
+        showPermissionSetup(context);
+      }
+    });
   }
 
   @override
@@ -210,6 +216,7 @@ class _ServerPageState extends State<ServerPage> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         buildPresetPasswordWarningMobile(),
+                        const PermissionSetupBanner(),
                         gFFI.serverModel.isStart
                             ? ServerInfo()
                             : ServiceNotRunningNotification(),
