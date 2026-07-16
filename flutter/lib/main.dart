@@ -41,6 +41,7 @@ import 'models/platform_model.dart';
 
 // New WeChat-style UI (desktop main window home).
 import 'ui/layout/main_layout.dart';
+import 'ui/mobile/mobile_main_layout.dart';
 import 'ui/states/app_state.dart';
 import 'ui/states/conversation_state.dart';
 
@@ -444,7 +445,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               ? const MainLayout()
               : isWeb
                   ? WebHomePage()
-                  : HomePage(),
+                  : const MobileMainLayout(),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
