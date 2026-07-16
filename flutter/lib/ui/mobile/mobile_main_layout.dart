@@ -15,6 +15,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../common.dart';
+import '../../models/binding_model.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import '../../mobile/pages/server_page.dart';
@@ -94,6 +95,11 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
         .map((c) => c.peerId)
         .toSet()
         .toList();
+    // 绑定的 PC 走「30 分钟局域网直连同步」，不参与经中继服务器的在线查询。
+    if (Get.isRegistered<BindingState>()) {
+      final bound = Get.find<BindingState>().bindings.map((b) => b.id).toSet();
+      ids.removeWhere((id) => bound.contains(id));
+    }
     if (ids.isEmpty) return;
     try {
       bind.queryOnlines(ids: ids);
@@ -113,17 +119,44 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
       for (final p in gFFI.abModel.currentAbPeers.toList()) {
         if (peers.every((e) => e.id != p.id)) peers.add(p);
       }
-      if (peers.isEmpty) return;
-      _convState.reloadFromPeers(peers
-          .map((p) => (
-                id: p.id,
-                alias: p.alias,
-                hostname: p.hostname,
-                platform: p.platform,
-              ))
-          .toList());
+      if (peers.isNotEmpty) {
+        _convState.reloadFromPeers(peers
+            .map((p) => (
+                  id: p.id,
+                  alias: p.alias,
+                  hostname: p.hostname,
+                  platform: p.platform,
+                ))
+            .toList());
+      }
+      // 重新合并已绑定的 PC（reloadFromPeers 会清空会话列表，需把绑定项补回）。
+      _mergeBoundPcs();
     } catch (e) {
       debugPrint('_reloadPeers failed: $e');
+    }
+  }
+
+  /// 把绑定的 PC 合并回会话列表，保持「消息 / 设备」中可见并显示在线状态。
+  void _mergeBoundPcs() {
+    if (!Get.isRegistered<BindingState>()) return;
+    final binding = Get.find<BindingState>();
+    for (final b in binding.bindings) {
+      final idx =
+          _convState.conversations.indexWhere((c) => c.id == b.id);
+      if (idx >= 0) {
+        _convState.conversations[idx] = _convState.conversations[idx]
+            .copyWith(isOnline: b.online, lastMessage: b.online ? '在线' : '离线');
+      } else {
+        _convState.conversations.add(Conversation(
+          id: b.id,
+          name: b.name,
+          peerId: b.id,
+          isOnline: b.online,
+          lastMessage: b.online ? '在线' : '离线',
+          avatarText: b.name.isNotEmpty ? b.name[0] : 'D',
+          platform: '',
+        ));
+      }
     }
   }
 

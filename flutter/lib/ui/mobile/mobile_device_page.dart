@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../common.dart';
+import '../../models/binding_model.dart';
+import '../../mobile/pages/scan_page.dart';
 import '../components/device_card.dart';
 import '../states/app_state.dart';
 import '../states/conversation_state.dart';
@@ -119,6 +121,41 @@ class _MobileDevicePageState extends State<MobileDevicePage> {
     connect(context, id);
   }
 
+  /// 长按已绑定设备 -> 确认解绑（不再每 30 分钟自动同步）。
+  void _confirmUnbind(String id) {
+    if (!Get.isRegistered<BindingState>() ||
+        !Get.find<BindingState>().isBound(id)) {
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('解绑设备', style: MobileTextStyles.listItem),
+        content: const Text('确定不再自动同步该设备的状态吗？',
+            style: MobileTextStyles.input),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Get.find<BindingState>().removeBinding(id);
+              Navigator.pop(ctx);
+              Get.snackbar('已解绑', '已取消自动同步',
+                  snackPosition: SnackPosition.BOTTOM);
+            },
+            child: const Text('解绑'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -145,6 +182,14 @@ class _MobileDevicePageState extends State<MobileDevicePage> {
         children: [
           const Text('设备', style: MobileTextStyles.navTitle),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner,
+                size: 24, color: AppColors.textPrimary),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ScanPage()),
+            ),
+            tooltip: '扫一扫绑定电脑',
+          ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline,
                 size: 24, color: AppColors.textPrimary),
@@ -192,7 +237,7 @@ class _MobileDevicePageState extends State<MobileDevicePage> {
           child: Text('暂无设备', style: MobileTextStyles.sectionLabel),
         );
       }
-      return ListView.separated(
+          return ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 4),
         itemCount: list.length,
         separatorBuilder: (_, __) =>
@@ -205,6 +250,7 @@ class _MobileDevicePageState extends State<MobileDevicePage> {
             onConnect: c.peerId.isEmpty
                 ? null
                 : () => connect(context, c.peerId),
+            onUnbind: () => _confirmUnbind(c.id),
           );
         },
       );
@@ -218,11 +264,13 @@ class _DeviceTile extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
   final VoidCallback? onConnect;
+  final VoidCallback? onUnbind;
 
   const _DeviceTile(
       {required this.conversation,
       required this.onTap,
-      this.onConnect});
+      this.onConnect,
+      this.onUnbind});
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +279,7 @@ class _DeviceTile extends StatelessWidget {
     final online = c.isOnline;
     return InkWell(
       onTap: onTap,
+      onLongPress: onUnbind,
       child: Container(
         height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -278,11 +327,36 @@ class _DeviceTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    c.peerId.isEmpty ? '示例设备' : (online ? '在线' : '离线'),
-                    style: MobileTextStyles.conversationPreview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          c.peerId.isEmpty ? '示例设备' : (online ? '在线' : '离线'),
+                          style: MobileTextStyles.conversationPreview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Obx(() {
+                        final bound = Get.isRegistered<BindingState>() &&
+                            Get.find<BindingState>().isBound(c.id);
+                        return bound
+                            ? Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('已绑定',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.primaryGreen)),
+                              )
+                            : const SizedBox.shrink();
+                      }),
+                    ],
                   ),
                 ],
               ),

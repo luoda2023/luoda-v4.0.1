@@ -44,6 +44,7 @@ import 'ui/layout/main_layout.dart';
 import 'ui/mobile/mobile_main_layout.dart';
 import 'ui/states/app_state.dart';
 import 'ui/states/conversation_state.dart';
+import 'models/binding_model.dart';
 
 import 'package:luoda_flutter/plugin/handlers.dart'
     if (dart.library.html) 'package:luoda_flutter/web/plugin/handlers.dart';
@@ -136,6 +137,9 @@ void _registerUiControllers() {
   }
   if (!Get.isRegistered<ConversationState>()) {
     Get.put(ConversationState());
+  }
+  if (!Get.isRegistered<BindingState>()) {
+    Get.put(BindingState());
   }
   Get.find<AppState>().isDarkMode.value =
       MyTheme.currentThemeMode() == ThemeMode.dark;

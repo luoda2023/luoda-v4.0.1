@@ -21,6 +21,8 @@ import '../states/chat_message_state.dart';
 import '../states/conversation_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+// LUODA 手机绑定：PC 端展示二维码，手机扫码直连绑定
+import '../../desktop/widgets/bind_phone_dialog.dart';
 // LUODA 后端：connect() 发起连接、gFFI 拉 peer、bind/platformFFI FFI 通道
 import '../../common.dart';
 import '../../models/peer_model.dart';
@@ -317,6 +319,22 @@ class _MainLayoutState extends State<MainLayout> {
               child: const Padding(
                 padding: EdgeInsets.all(10),
                 child: Icon(Icons.login, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 手机绑定：展示二维码，手机扫码即直连绑定
+          Material(
+            color: AppColors.contentAreaBg,
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => showBindPhoneDialog(context),
+              tooltip: '绑定手机',
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(Icons.qr_code_2,
+                    color: AppColors.primaryGreen, size: 20),
               ),
             ),
           ),

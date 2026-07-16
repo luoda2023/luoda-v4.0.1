@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:zxing2/qrcode.dart';
 
 import '../../common.dart';
+import '../../models/binding_model.dart';
 import '../../models/platform_model.dart';
 import '../widgets/dialog.dart';
 
@@ -97,7 +99,9 @@ class _ScanPageState extends State<ScanPage> {
 
         var reader = QRCodeReader();
         var result = reader.decode(bitmap);
-        if (result.text.startsWith(bind.mainUriPrefixSync())) {
+        if (result.text.startsWith('ldesk://bind')) {
+          _handleBindQr(result.text);
+        } else if (result.text.startsWith(bind.mainUriPrefixSync())) {
           handleUriLink(uriString: result.text);
         } else {
           showServerSettingFromQr(result.text);
@@ -146,9 +150,38 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
+  /// 识别手机绑定二维码（ldesk://bind?id=<PC的ID>&name=<名称>），
+  /// 写入 BindingState（持久化 + 每 30 分钟局域网自动同步）。
+  void _handleBindQr(String data) {
+    try {
+      final uri = Uri.parse(data);
+      if (uri.scheme != 'ldesk' || uri.host != 'bind') {
+        showToast('二维码无效');
+        return;
+      }
+      final id = uri.queryParameters['id'] ?? '';
+      final name = uri.queryParameters['name'] ?? '';
+      if (id.isEmpty) {
+        showToast('二维码无效');
+        return;
+      }
+      if (!Get.isRegistered<BindingState>()) {
+        Get.put(BindingState());
+      }
+      Get.find<BindingState>().addBinding(id, name);
+      showToast(name.isNotEmpty ? '已绑定 $name' : '已绑定 $id');
+    } catch (e) {
+      showToast('绑定失败');
+    }
+  }
+
   void showServerSettingFromQr(String data) async {
     closeConnection();
     await controller?.pauseCamera();
+    if (data.startsWith('ldesk://bind')) {
+      _handleBindQr(data);
+      return;
+    }
     if (!data.startsWith('config=')) {
       showToast('Invalid QR code');
       return;
