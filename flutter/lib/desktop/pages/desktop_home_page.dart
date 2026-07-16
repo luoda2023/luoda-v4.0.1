@@ -71,62 +71,58 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     connect(buildCtx, trimmed);
   }
 
-  @override
+ @override
  Widget build(BuildContext context) {
  super.build(context);
  final isIncomingOnly = bind.isIncomingOnly();
  // 客户端专用版：只显示左侧内容，不包含右侧输入框和历史列表
  if (widget.isClientOnly) {
- // 客户定制版: 用 SizedBox(width: 380) 包裹并居中, 强制 380 宽度且水平居中,
- // 避免被父级 buildRemoteBlock 的 Stack/MouseRegion 撑开导致右侧大片空白。
- // 同时不再绘制 VerticalDivider —— 客户版只有左侧面板,根本不需要分隔线。
+ // 客户定制版 v2.2.1+：
+ // 1) 整页 Expanded 撑满 body（消除"窗口右半边灰白色空白"问题）
+ // 2) 内部表单/头像区用 Center + ConstrainedBox(maxWidth 360) 居中显示
+ // 3) 窗口尺寸由 initState 调 windowManager.setSize(getIncomingOnlyHomeSize())
+ // 固定为 (380, 500) —— 两层一起，窗宽 = 380 ≈ leftPane 宽，彻底无右侧留白
  return _buildBlock(
- child: Align(
- alignment: Alignment.center,
- child: SizedBox(
- width: 380.0,
+ child: SizedBox.expand(
  child: buildLeftPane(context),
  ),
- ));
+ );
  }
  return _buildBlock(
  child: Row(
  crossAxisAlignment: CrossAxisAlignment.start,
  children: [
  buildLeftPane(context),
-        if (!isIncomingOnly) const VerticalDivider(width: 1),
-        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-      ],
-    ));
-  }
+ if (!isIncomingOnly) const VerticalDivider(width: 1),
+ if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
+ ],
+ ));
+ }
 
-  Widget _buildBlock({required Widget child}) {
-    Widget effectiveChild = child;
-    // 客户定制版：限制最大宽度,防止父级 Stack/Row 被撑开导致右侧出现空白
-    if (widget.isClientOnly) {
-      effectiveChild = SizedBox(
-        width: 380,
-        child: child,
-      );
-    }
-    return buildRemoteBlock(
-        block: _block, mask: true, use: canBeBlocked, child: effectiveChild);
-  }
+ Widget _buildBlock({required Widget child}) {
+ Widget effectiveChild = child;
+ // 客户定制版：不再用 SizedBox(380) 强压宽度，让 child 自身 Expanded
+ // 撑满窗口；窗口尺寸由 windowManager.setSize 严格控制。这样:
+ // - 防止"右半屏灰白色空白区"
+ // - 同时窗口本身被 setSize 限定为 380x500，外部拖拽也不能拉宽
+ return buildRemoteBlock(
+ block: _block, mask: true, use: canBeBlocked, child: effectiveChild);
+ }
 
-	  Widget buildLeftPane(BuildContext context) {
-    if (widget.isClientOnly) {
-      return ChangeNotifierProvider.value(
-        value: gFFI.serverModel,
-        child: SizedBox(
-          width: 380.0,
-          child: Column(
-            children: [
-              Expanded(
-                child: Column(
-                  key: _childKey,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // 圆形头像 + LUODA 远程协助标题 —— 真正居中
+ Widget buildLeftPane(BuildContext context) {
+ if (widget.isClientOnly) {
+ return ChangeNotifierProvider.value(
+ value: gFFI.serverModel,
+ // 客户定制版: 不再强压 380, 让本页占满窗口宽度, 窗口本身设为 380x500
+ child: SizedBox.expand(
+ child: Column(
+ children: [
+ Expanded(
+ child: Column(
+ key: _childKey,
+ crossAxisAlignment: CrossAxisAlignment.center,
+ children: [
+ // 圆形头像 + LUODA 远程协助标题 —— 真正居中
                     Padding(
                       padding: const EdgeInsets.only(top: 24),
                       child: Column(
