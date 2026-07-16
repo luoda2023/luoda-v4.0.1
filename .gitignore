@@ -45,3 +45,7 @@ settings_update.json
 
 # ZCode 计划文件（个人临时计划，不共享）
 .zcode/
+# LUODA local workspace artifacts (not for online repo)
+.workbuddy/
+UI-REDESIGN/
+Images/
