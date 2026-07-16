@@ -188,13 +188,60 @@ class ConversationState extends GetxController {
  return list;
  }
 
- /// 标记会话已读
- void markRead(String id) {
- final idx = conversations.indexWhere((c) => c.id == id);
- if (idx >= 0 && conversations[idx].unreadCount > 0) {
- conversations[idx] = conversations[idx].copyWith(unreadCount: 0);
- }
- }
+  /// 标记会话已读
+  void markRead(String id) {
+    final idx = conversations.indexWhere((c) => c.id == id);
+    if (idx >= 0 && conversations[idx].unreadCount > 0) {
+      conversations[idx] = conversations[idx].copyWith(unreadCount: 0);
+    }
+  }
+
+  /// 我方发出消息后，更新会话列表的最后一条/时间（不增加未读）
+  void recordOutgoing(String id, String text) {
+    final idx = conversations.indexWhere((c) => c.id == id);
+    if (idx < 0) return;
+    conversations[idx] = conversations[idx].copyWith(
+      lastMessage: text,
+      lastTime: DateTime.now(),
+    );
+  }
+
+  /// 收到对方消息后，更新最后一条/时间；若当前未打开该会话则未读 +1
+  void recordIncoming(String id, String text) {
+    final idx = conversations.indexWhere((c) => c.id == id);
+    if (idx < 0) return;
+    final c = conversations[idx];
+    final isActive = appState.activeConversation == id;
+    conversations[idx] = c.copyWith(
+      lastMessage: text,
+      lastTime: DateTime.now(),
+      unreadCount: isActive ? 0 : c.unreadCount + 1,
+    );
+  }
+
+  /// LUODA: 把已绑定的「自己其他设备」作为私有联系人加入会话列表，
+  /// 使其与普通联系人走同一条 P2P 聊天链路（即「和联系人同步一样」）。
+  /// 已存在的（按 peerId）不会重复添加。
+  void ensureBoundDevices(List<({String id, String name})> devices) {
+    if (devices.isEmpty) return;
+    var changed = false;
+    final next = conversations.toList();
+    for (final d in devices) {
+      if (next.any((c) => c.peerId == d.id)) continue;
+      final name = d.name.isNotEmpty ? d.name : d.id;
+      next.add(Conversation(
+        id: d.id,
+        name: name,
+        peerId: d.id,
+        lastMessage: '已绑定设备',
+        lastTime: DateTime.now(),
+        avatarText: name.isEmpty ? 'D' : name.substring(0, 1),
+        platform: 'server',
+      ));
+      changed = true;
+    }
+    if (changed) conversations.value = next;
+  }
 
  /// 删除会话
  void remove(String id) {

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:luoda_flutter/common.dart';
 import '../components/avatar.dart';
 import '../components/chat_bubble.dart';
 import '../states/chat_message_state.dart';
@@ -96,6 +97,16 @@ class _ChatPageState extends State<ChatPage> {
             icon: const Icon(Icons.cast_connected,
                 color: AppColors.primaryGreen),
             onPressed: () {
+              final convs = Get.find<ConversationState>().conversations;
+              final idx = convs.indexWhere((c) => c.id == widget.conversationId);
+              final peerId = idx >= 0 ? (convs[idx].peerId) : widget.conversationId;
+              if (peerId.isEmpty) {
+                Get.snackbar('远程协助', '该会话暂不支持远程连接',
+                    snackPosition: SnackPosition.BOTTOM);
+                return;
+              }
+              // 建立到对端的 P2P 会话；聊天将沿同一条直连收发，不经服务器
+              connect(context, peerId);
               Get.snackbar('远程协助', '正在向 $_title 发起远程连接…',
                   snackPosition: SnackPosition.BOTTOM);
             },

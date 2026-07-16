@@ -1,20 +1,24 @@
 // flutter/lib/ui/states/chat_message_state.dart
-// UI 层轻量聊天消息存储。
+// 微信风格聊天消息存储（UI 层唯一消息源），并接上真实收发链路。
 //
-// 说明：仓库里已有的 models/chat_model.dart 是遗留的「浮窗聊天」实现，
-// 深度耦合 dash_chat_2 / 多窗口 / platform_model 全家桶，不适合新 ui/ 框架的
-// 整屏聊天页直接复用。这里在 ui/states/ 层提供一个自给自足的消息 store，
-// 与 conversation_state.dart 同层同风格：
-//   - 按会话 ID 分桶存消息，Rx 响应式；
-//   - send() 先本地落一条「我方」消息（UI 即时可见）；
-//   - receive() 供后端（Rust FFI「常连接」通道）回推对方消息时调用。
-// 真实的收发链路在「常连接」阶段接到后端，这里的接口保持稳定。
+// 架构（与「联系人同步」同源，去中间服务器）：
+//  - 发送：先本地落一条「我方」消息（UI 即时可见），再尝试经当前活跃 P2P 会话
+//    (gFFI.sessionId) 调用 sessionSendChat 真正发给对端；消息不经任何服务器。
+//  - 接收：models/model.dart 的 chat_client_mode / chat_server_mode 事件回推对端消息，
+//    由该处调用本 store 的 receive() 写入对应会话（对端 peerId 即会话 id）。
+//  - 持久化：每条会话消息用 mainGetLocalOption / mainSetLocalOption 存本地
+//    （key = ldesk_chat_<conversationId>），重启不丢。
+//  - PC↔手机：绑定设备互为私有联系人（见 binding_model.dart），与本机其他联系人
+//    走同一条 P2P 聊天链路，记录各自本地持久化 —— 即「和联系人同步一样」。
+
+import 'dart:convert';
 
 import 'package:get/get.dart';
+import 'package:luoda_flutter/models/platform_model.dart';
 
 /// 单条聊天消息（UI 层模型）
 class UiChatMessage {
-  /// 发送方标识：'me' 表示自己，其余为对端 peerId/名称
+  /// 发送方标识：'me' 表示自己，其余为对端
   final String sender;
 
   /// 文本内容
@@ -41,6 +45,20 @@ class UiChatMessage {
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
+
+  Map<String, dynamic> toJson() => {
+        's': sender,
+        't': text,
+        'time': time.millisecondsSinceEpoch,
+        'sys': isSystem,
+      };
+
+  factory UiChatMessage.fromJson(Map<String, dynamic> j) => UiChatMessage(
+        sender: j['s'] as String? ?? 'peer',
+        text: j['t'] as String? ?? '',
+        time: DateTime.fromMillisecondsSinceEpoch(j['time'] as int? ?? 0),
+        isSystem: j['sys'] as bool? ?? false,
+      );
 }
 
 /// 聊天消息 store：按会话分桶管理消息列表
@@ -49,15 +67,60 @@ class ChatMessageState extends GetxController {
   final RxMap<String, RxList<UiChatMessage>> _buckets =
       <String, RxList<UiChatMessage>>{}.obs;
 
-  /// 取某会话的消息列表（不存在则创建空桶）
+  /// 已惰性加载过的会话（避免重复读本地）
+  final Set<String> _loaded = {};
+
+  /// 真实发送通道：由会话层（models/model.dart）注入，经活跃 P2P 会话发出。
+  /// 为 null 时只本地留存（例如尚未与该对端建立连接）。
+  Future<void> Function(String conversationId, String text)? _transport;
+
+  /// 消息落库后的联动回调（会话列表最后一条/未读数），由壳层注册。
+  void Function(String id, String text, bool mine)? _onMessage;
+
+  void setTransport(Future<void> Function(String, String)? fn) => _transport = fn;
+
+  void setOnMessage(void Function(String id, String text, bool mine)? fn) =>
+      _onMessage = fn;
+
+  /// 取某会话的消息列表（不存在则创建空桶，并惰性从本地加载）
   RxList<UiChatMessage> messagesOf(String conversationId) {
+    _ensureLoaded(conversationId);
     return _buckets.putIfAbsent(
       conversationId,
       () => <UiChatMessage>[].obs,
     );
   }
 
-  /// 发送一条「我方」文本消息
+  void _ensureLoaded(String id) {
+    if (_loaded.contains(id)) return;
+    _loaded.add(id);
+    try {
+      final raw = bind.mainGetLocalOption(key: 'ldesk_chat_$id');
+      if (raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List;
+        final msgs = list
+            .map((e) => UiChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (msgs.isNotEmpty) {
+          _buckets[id] = msgs.obs;
+        }
+      }
+    } catch (_) {
+      // 本地读失败不影响内存态
+    }
+  }
+
+  void _persist(String id) {
+    try {
+      final list = messagesOf(id).map((m) => m.toJson()).toList();
+      bind.mainSetLocalOption(
+          key: 'ldesk_chat_$id', value: jsonEncode(list));
+    } catch (_) {
+      // 持久化失败不阻塞聊天
+    }
+  }
+
+  /// 发送一条「我方」文本消息：本地即时可见 + 持久化 + 联动 + 真实发出
   void send(String conversationId, String text) {
     final t = text.trim();
     if (t.isEmpty) return;
@@ -66,30 +129,77 @@ class ChatMessageState extends GetxController {
       text: t,
       time: DateTime.now(),
     ));
+    _persist(conversationId);
+    _onMessage?.call(conversationId, t, true);
+    _deliver(conversationId, t);
   }
 
-  /// 收到对方消息（供后端「常连接」通道回推调用）
+  /// 收到对方消息（供后端「常连接」通道 / 入站事件回推调用）
   void receive(String conversationId, String sender, String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
     messagesOf(conversationId).add(UiChatMessage(
       sender: sender,
-      text: text,
+      text: t,
       time: DateTime.now(),
     ));
+    _persist(conversationId);
+    _onMessage?.call(conversationId, t, false);
   }
 
   /// 追加系统消息（如「已建立远程连接」）
   void system(String conversationId, String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
     messagesOf(conversationId).add(UiChatMessage(
       sender: 'system',
-      text: text,
+      text: t,
       time: DateTime.now(),
       isSystem: true,
     ));
+    _persist(conversationId);
   }
 
   /// 清空某会话消息
   void clear(String conversationId) {
-    _buckets[conversationId]?.clear();
+    messagesOf(conversationId).clear();
+    _persist(conversationId);
+  }
+
+  /// 真实发送：仅当当前活跃 P2P 会话的对端正是该会话对象时才经 sessionSendChat 发出。
+  void _deliver(String conversationId, String text) {
+    final fn = _transport;
+    if (fn == null) return;
+    fn(conversationId, text).catchError((e) {
+      // 发送失败（如对端已断开）仅本地留存，不抛异常
+    });
+  }
+
+  /// 跨设备同步导出：返回全部会话的消息快照（供绑定局域网通道交换）
+  Map<String, List<Map<String, dynamic>>> exportHistory() {
+    final out = <String, List<Map<String, dynamic>>>{};
+    for (final entry in _buckets.entries) {
+      out[entry.key] = entry.value.map((m) => m.toJson()).toList();
+    }
+    return out;
+  }
+
+  /// 跨设备同步导入：合并对端设备推来的消息快照（按时间去重）
+  void importHistory(Map<String, List<Map<String, dynamic>>> data) {
+    data.forEach((id, list) {
+      final incoming = list
+          .map((e) => UiChatMessage.fromJson(e))
+          .toList();
+      if (incoming.isEmpty) return;
+      final bucket = messagesOf(id);
+      final existing = bucket.map((m) => m.time.millisecondsSinceEpoch).toSet();
+      for (final m in incoming) {
+        if (!existing.contains(m.time.millisecondsSinceEpoch)) {
+          bucket.add(m);
+        }
+      }
+      _persist(id);
+    });
   }
 }
 

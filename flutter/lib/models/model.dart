@@ -35,6 +35,7 @@ import 'package:tuple/tuple.dart';
 import 'package:image/image.dart' as img2;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:luoda_flutter/ui/states/chat_message_state.dart';
 import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:file_picker/file_picker.dart';
@@ -359,11 +360,26 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'permission') {
         updatePermission(evt, peerId);
       } else if (name == 'chat_client_mode') {
+        final text = evt['text'] ?? '';
         parent.target?.chatModel
-            .receive(ChatModel.clientModeID, evt['text'] ?? '');
+            .receive(ChatModel.clientModeID, text);
+        _syncChatToWeChat(peerId, text);
       } else if (name == 'chat_server_mode') {
-        parent.target?.chatModel
-            .receive(int.parse(evt['id'] as String), evt['text'] ?? '');
+        final id = int.parse(evt['id'] as String);
+        final text = evt['text'] ?? '';
+        parent.target?.chatModel.receive(id, text);
+        // 解析发消息的客户端的真实 peerId，写入微信壳层对应会话
+        var clientPeerId = id.toString();
+        final clients = parent.target?.serverModel.clients;
+        if (clients != null) {
+          for (final c in clients) {
+            if (c.id == id) {
+              clientPeerId = c.peerId;
+              break;
+            }
+          }
+        }
+        _syncChatToWeChat(clientPeerId, text);
       } else if (name == 'terminal_response') {
         parent.target?.routeTerminalResponse(evt);
       } else if (name == 'file_dir') {
@@ -4210,4 +4226,31 @@ Future<void> initializeCursorAndCanvas(FFI ffi) async {
 
 clearWaitingForImage(OverlayDialogManager? dialogManager, SessionID sessionId) {
   dialogManager?.dismissByTag('$sessionId-waiting-for-image');
+}
+
+/// LUODA: 把入站聊天消息写入微信壳层 [ChatMessageState] 对应会话。
+/// 首次收到消息时注入真实发送通道：经当前活跃 P2P 会话 (gFFI.sessionId)
+/// 调用 sessionSendChat 发出，不经任何中间服务器。
+void _syncChatToWeChat(String conversationId, String text) {
+  if (text.isEmpty) return;
+  try {
+    if (Get.isRegistered<ChatMessageState>()) {
+      final cs = Get.find<ChatMessageState>();
+      cs.setTransport((id, txt) => _deliverChatViaSession(id, txt));
+      cs.receive(conversationId, 'peer', text);
+    }
+  } catch (_) {
+    // 微信壳层未就绪时忽略，不影响原有浮窗聊天
+  }
+}
+
+/// 真实发送：仅当当前活跃 P2P 会话的对端正是该会话对象时才经 sessionSendChat 发出。
+Future<void> _deliverChatViaSession(String conversationId, String text) async {
+  try {
+    if (gFFI.id == conversationId && gFFI.sessionId != null) {
+      await bind.sessionSendChat(sessionId: gFFI.sessionId, text: text);
+    }
+  } catch (_) {
+    // 对端断开等情况静默失败，消息仍留存本地
+  }
 }

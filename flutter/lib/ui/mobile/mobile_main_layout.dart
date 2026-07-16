@@ -54,6 +54,15 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
     if (!Get.isRegistered<ChatMessageState>()) {
       Get.put(ChatMessageState());
     }
+    // 聊天消息联动会话列表（最后一条/未读）
+    chatMessages.setOnMessage((id, text, mine) {
+      final conv = Get.find<ConversationState>();
+      if (mine) {
+        conv.recordOutgoing(id, text);
+      } else {
+        conv.recordIncoming(id, text);
+      }
+    });
     _setupPeerPolling();
   }
 
