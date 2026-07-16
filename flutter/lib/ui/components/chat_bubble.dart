@@ -38,6 +38,9 @@ class ChatBubble extends StatelessWidget {
   final Widget? avatar;
   final String? senderName;
 
+  /// 可选自定义文字样式。移动端传入手机标准字号，桌面端留空沿用默认 PC 样式。
+  final TextStyle? textStyle;
+
   const ChatBubble({
     super.key,
     this.text,
@@ -48,6 +51,7 @@ class ChatBubble extends StatelessWidget {
     this.onLongPress,
     this.avatar,
     this.senderName,
+    this.textStyle,
   });
 
   @override
@@ -136,9 +140,10 @@ class ChatBubble extends StatelessWidget {
                     child: customContent ??
                         Text(
                           text ?? '',
-                          style: isMine
-                              ? AppTextStyles.chatMessageMine
-                              : AppTextStyles.chatMessageOther,
+                          style: textStyle ??
+                              (isMine
+                                  ? AppTextStyles.chatMessageMine
+                                  : AppTextStyles.chatMessageOther),
                         ),
                   ),
                 ),
