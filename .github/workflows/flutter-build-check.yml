@@ -1,0 +1,31 @@
+name: Flutter Build Check (3.24.5)
+
+# 仅在本分支触发，避免误跑仓库里那 5 个重型 OS 构建。
+on:
+  push:
+    branches: ['v4.0.1']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.24.5 (matches CI pin)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      - name: Show flutter version
+        working-directory: flutter
+        run: flutter --version
+
+      - name: Pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Build bundle (full Dart compile check)
+        working-directory: flutter
+        run: flutter build bundle

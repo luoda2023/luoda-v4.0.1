@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../theme/app_theme.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../states/app_state.dart';
@@ -17,7 +16,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
  final AppState _appState = Get.find<AppState>();
- bool _darkMode = false;
  String _language = 'zh_CN';
  bool _autoStart = true;
  bool _notifications = true;
@@ -40,7 +38,10 @@ class _SettingsPageState extends State<SettingsPage> {
  ListTile(
  leading: const Icon(Icons.dark_mode, color: AppColors.primaryGreen),
  title: const Text('深色模式'),
- trailing: Switch(value: _darkMode, onChanged: (v) => setState(() => _darkMode = v)),
+ trailing: Obx(() => Switch(
+ value: _appState.isDarkMode.value,
+ onChanged: (v) => _appState.setDarkMode(v),
+ )),
  ),
  ListTile(
  leading: const Icon(Icons.language, color: AppColors.primaryGreen),

@@ -1,5 +1,5 @@
 // flutter/lib/ui/theme/app_colors.dart
-// LUODA v2.2.1 微信风格色板
+// LUODA v4.0.1 微信风格色板
 
 import 'package:flutter/material.dart';
 
@@ -41,6 +41,9 @@ class AppColors {
   static const Color hover = Color(0xFFE8E8E8);
   static const Color selected = Color(0xFFD6D6D6);
   static const Color pressed = Color(0xFFC9C9C9);
+
+  // 导航项选中态背景（微信左侧导航被点亮时的浅色底）
+  static const Color activeItemBackground = Color(0xFFDCEFE3);
 
   // 聊天气泡
   static const Color bubbleMine = Color(0xFF95EC69);

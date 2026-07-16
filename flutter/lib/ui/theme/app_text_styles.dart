@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// LUODA v2.2.1 微信风格文本样式
+/// LUODA v4.0.1 微信风格文本样式
 ///
 /// 字号系统参考微信PC端：
 /// - 显示标题: 24

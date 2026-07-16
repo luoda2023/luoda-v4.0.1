@@ -82,6 +82,14 @@ class AppState extends GetxController {
  ServerConnectionStatus get serverStatus => _serverStatus.value;
  set serverStatus(ServerConnectionStatus v) => _serverStatus.value = v;
 
+ /// 暗色模式开关（驱动 GetMaterialApp 的 themeMode，设置页可切换）
+ final RxBool isDarkMode = false.obs;
+ void toggleDarkMode() => isDarkMode.value = !isDarkMode.value;
+ void setDarkMode(bool v) => isDarkMode.value = v;
+
+ /// 全部会话未读数合计（侧栏会话图标角标用）
+ final RxInt totalUnread = 0.obs;
+
   void selectNav(NavSection section) {
     nav = section;
     if (section == NavSection.chat) {
