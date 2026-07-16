@@ -186,7 +186,7 @@ class _MobileDevicePageState extends State<MobileDevicePage> {
             icon: const Icon(Icons.qr_code_scanner,
                 size: 24, color: AppColors.textPrimary),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ScanPage()),
+              MaterialPageRoute(builder: (_) => ScanPage()),
             ),
             tooltip: '扫一扫绑定电脑',
           ),

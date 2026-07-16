@@ -13,16 +13,17 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import 'common.dart';
-import 'models/conversation_state.dart';
-import 'models/platform_model.dart';
+import '../common.dart';
+import '../ui/states/conversation_state.dart';
+import 'platform_model.dart';
 
 /// 一个被绑定的 PC。
 class BoundPc {
   final String id;
-  final String name;
+  String name;
   String lanIp; // 局域网直连地址（发现到时填入）
   int lastSync; // 最近一次同步的 epoch 毫秒
   bool online; // 当前是否通过局域网发现到

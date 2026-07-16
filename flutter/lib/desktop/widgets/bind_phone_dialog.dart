@@ -12,7 +12,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../common.dart';
 import '../../models/platform_model.dart';
-import '../theme/app_colors.dart';
+import '../../ui/theme/app_colors.dart';
 
 /// 弹出「绑定手机」对话框（PC 端）。
 Future<void> showBindPhoneDialog(BuildContext context) async {
@@ -21,8 +21,8 @@ Future<void> showBindPhoneDialog(BuildContext context) async {
   // 友好名称：优先别名，其次主机名，最后回退到 ID。
   String name = id;
   try {
-    final alias = bind.mainGetPeerOption(id: id, key: 'alias');
-    final hostname = bind.mainGetPeerOption(id: id, key: 'hostname');
+    final alias = await bind.mainGetPeerOption(id: id, key: 'alias');
+    final hostname = await bind.mainGetPeerOption(id: id, key: 'hostname');
     if (alias.isNotEmpty) {
       name = alias;
     } else if (hostname.isNotEmpty) {

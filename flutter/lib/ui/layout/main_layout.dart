@@ -330,7 +330,6 @@ class _MainLayoutState extends State<MainLayout> {
             child: InkWell(
               borderRadius: BorderRadius.circular(6),
               onTap: () => showBindPhoneDialog(context),
-              tooltip: '绑定手机',
               child: const Padding(
                 padding: EdgeInsets.all(10),
                 child: Icon(Icons.qr_code_2,
