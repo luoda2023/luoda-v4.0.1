@@ -1844,18 +1844,26 @@ impl<T: InvokeUiSession> Interface for Session<T> {
                 self.on_error("No active console user logged on, please connect and logon first.");
                 return;
             }
-        } else if !self.is_port_forward() && !self.is_terminal() {
-            if pi.displays.is_empty() {
-                self.lc.write().unwrap().handle_peer_info(&pi);
-                self.update_privacy_mode();
-                let msg = if self.is_view_camera() {
-                    "No cameras"
-                } else {
-                    "No displays"
-                };
-                self.msgbox("error", "Error", msg, "");
-                return;
-            }
+} else if !self.is_port_forward() && !self.is_terminal() {
+ if pi.displays.is_empty() {
+ self.lc.write().unwrap().handle_peer_info(&pi);
+ self.update_privacy_mode();
+ let (title, msg, detail) = if self.is_view_camera() {
+ ("Error", "No cameras", "")
+ } else {
+ // LUODA: 无显示器场景（典型是 VPS / 云主机 / headless 主机）
+ // 给出明确的修复指引，而不是单纯的 "No displays" 让用户摸不着头脑。
+ (
+ "Error",
+ "No displays",
+ "The remote side has no display attached. On a VPS / headless host, \
+ install the LUODA amyuni IDD virtual display driver, or plug a dummy \
+ HDMI/DP edid emulator, then restart LUODA service and reconnect.",
+ )
+ };
+ self.msgbox("error", title, msg, detail);
+ return;
+ }
             self.try_change_init_resolution(pi.current_display);
             let p = self.lc.read().unwrap().should_auto_login();
             if !p.is_empty() {

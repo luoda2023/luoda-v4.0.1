@@ -1679,10 +1679,31 @@ impl Connection {
 
             try_activate_screen();
 
-            match super::display_service::update_get_sync_displays_on_login().await {
-                Err(err) => {
-                    res.set_error(format!("{}", err));
-                }
+ match super::display_service::update_get_sync_displays_on_login().await {
+ Err(err) => {
+ // LUODA: 即使抓屏失败（例如 VPS 无显示器、虚拟显示驱动未装好、
+ // Linux Wayland 会话不可用等场景），也必须把 PeerInfo 发回控制端。
+ // 否则控制端会收到 Err 后整个握手就停了，表现为"已连接，等待画面传输..."
+ // 然后卡死，控制端 GUI 看到的就是"无法连接"的体验。
+ // 这里把空 displays 的 PeerInfo 发出去，让控制端走 ui_session_interface
+ // 的 "No displays" 提示路径，用户能看到明确的错误原因。
+ log::warn!(
+ "update_get_sync_displays_on_login failed, sending empty-displays PeerInfo so the \
+ client can show a clear error instead of hanging: {}",
+ err
+ );
+ pi.displays = Vec::new();
+ pi.current_display = self.display_idx as _;
+ #[cfg(not(any(target_os = "android", target_os = "ios")))]
+ {
+ pi.resolutions = Some(SupportedResolutions {
+ resolutions: vec![],
+ ..Default::default()
+ })
+ .into();
+ }
+ res.set_peer_info(pi);
+ }
                 Ok(displays) => {
                     // For compatibility with old versions, we need to send the displays to the peer.
                     // But the displays may be updated later, before creating the video capturer.

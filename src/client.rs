@@ -311,40 +311,49 @@ impl Client {
                 }
             }
         }
-        if hbb_common::is_ip_str(peer) {
-            // LUODA 定制版: 裸 IP 直连时并发尝试 21118-21128 共 11 个候选端口，
-            // 解决被控端 21118 被占用导致端口回退到 21119/21120 后客户端硬编码连不上。
-            // 用 select_ok 哪个先成功就用哪个，整体超时仍受 CONNECT_TIMEOUT 控制。
-            let hosts: Vec<String> = (DEFAULT_DIRECT_PORT..DEFAULT_DIRECT_PORT + 11)
-                .map(|p| format!("{}:{}", peer, p))
-                .collect();
-            let futures: Vec<_> = hosts
-                .iter()
-                .map(|h| {
-                    let h = h.clone();
-                    async move {
-                        connect_tcp_local(h.as_str(), None, CONNECT_TIMEOUT).await
-                    }
-                    .boxed()
-                })
-                .collect();
-            match select_ok(futures).await {
-                Ok((conn, _)) => {
-                    return Ok((
-                        (conn, true, None, None, "TCP"),
-                        (0, "".to_owned()),
-                        false,
-                    ));
-                }
-                Err(e) => bail!(
-                    "Failed to connect to {} on ports {}-{}: {}",
-                    peer,
-                    DEFAULT_DIRECT_PORT,
-                    DEFAULT_DIRECT_PORT + 10,
-                    e
-                ),
-            }
-        }
+ if hbb_common::is_ip_str(peer) {
+ // LUODA 定制版: 裸 IP 直连时并发尝试 21118-21128 共 11 个候选端口，
+ // 解决被控端 21118 被占用导致端口回退到 21119/21120 后客户端硬编码连不上。
+ // 用 select_ok 哪个先成功就用哪个，整体超时仍受 CONNECT_TIMEOUT 控制。
+ //
+ // 注意: 从 v2.2.1 起默认启用 `random-direct-access-port`,被控端首次启动会
+ // 持久化一个 30000-60000 范围的随机端口到 `direct-access-port`。也就是说,
+ // 当被控端走随机端口时, 裸 IP 直连无法靠扫描命中, 用户必须显式输入
+ // `IP:port` (例如 `192.168.1.20:38291`)。ID 连接走 hbbs 时会自动用对端真实
+ // 端口, 不受此限制。
+ let hosts: Vec<String> = (DEFAULT_DIRECT_PORT..DEFAULT_DIRECT_PORT + 11)
+ .map(|p| format!("{}:{}", peer, p))
+ .collect();
+ let futures: Vec<_> = hosts
+ .iter()
+ .map(|h| {
+ let h = h.clone();
+ async move {
+ connect_tcp_local(h.as_str(), None, CONNECT_TIMEOUT).await
+ }
+ .boxed()
+ })
+ .collect();
+ match select_ok(futures).await {
+ Ok((conn, _)) => {
+ return Ok((
+ (conn, true, None, None, "TCP"),
+ (0, "".to_owned()),
+ false,
+ ));
+ }
+ Err(e) => bail!(
+ "Failed to connect to {} on ports {}-{}. \
+ Hint: since v2.2.1 the peer may be using a randomized direct-access-port; \
+ try `IP:port` (e.g. `{}:38291`) or use ID connection. Underlying error: {}",
+ peer,
+ DEFAULT_DIRECT_PORT,
+ DEFAULT_DIRECT_PORT + 10,
+ peer,
+ e
+ ),
+ }
+ }
         // Allow connect to {domain}:{port}
         if hbb_common::is_domain_port_str(peer) {
             return Ok((
@@ -664,10 +673,20 @@ impl Client {
                 }
             }
         }
-        drop(socket);
-        if peer_addr.port() == 0 {
-            bail!("Failed to connect via rendezvous server");
-        }
+ drop(socket);
+ if peer_addr.port() == 0 {
+ // LUODA: 把干涩的 "Failed to connect via rendezvous server" 改成带明确
+ // 修复指引的描述。10061/连接被拒通常意味着 hbbs 进程挂了或被防火墙拦了，
+ // 而不是控制端代码本身有问题。
+ bail!(
+ "Failed to connect via rendezvous server. \
+ This usually means the hbbs (rendezvous) service on your luoda-server is \
+ down, was restarted without enabling auto-start, or its TCP port is being \
+ blocked by a cloud security group / firewall. Please check on the server: \
+ `systemctl status luoda-hbbs luoda-hbbr` and `ss -tlnp | grep 21116`. \
+ If the service is down, restart it: `systemctl restart luoda-hbbs luoda-hbbr`."
+ );
+ }
         let time_used = start.elapsed().as_millis() as u64;
         log::info!(
             "{} ms used to {} punch hole, relay_server: {}, {}",
@@ -4053,21 +4072,20 @@ pub mod peer_online {
         }
     }
 
-    async fn create_online_stream() -> ResultType<Stream> {
-        let (rendezvous_server, _servers, _contained) =
-            crate::get_rendezvous_server(READ_TIMEOUT).await;
-        let tmp: Vec<&str> = rendezvous_server.split(":").collect();
-        if tmp.len() != 2 {
-            bail!("Invalid server address: {}", rendezvous_server);
-        }
-        let port: u16 = tmp[1].parse()?;
-        if port == 0 {
-            bail!("Invalid server address: {}", rendezvous_server);
-        }
-        let online_server = format!("{}:{}", tmp[0], port - 1);
-        connect_tcp(online_server, CONNECT_TIMEOUT).await
-    }
-
+ async fn create_online_stream() -> ResultType<Stream> {
+ let (rendezvous_server, _servers, _contained) =
+ crate::get_rendezvous_server(READ_TIMEOUT).await;
+ let tmp: Vec<&str> = rendezvous_server.split(":").collect();
+ if tmp.len() != 2 {
+ bail!("Invalid server address: {}", rendezvous_server);
+ }
+ let port: u16 = tmp[1].parse()?;
+ if port == 0 {
+ bail!("Invalid server address: {}", rendezvous_server);
+ }
+ let online_server = format!("{}:{}", tmp[0], port - 1);
+ connect_tcp(online_server, CONNECT_TIMEOUT).await
+ }
     async fn query_online_states_(
         ids: &Vec<String>,
         timeout: std::time::Duration,

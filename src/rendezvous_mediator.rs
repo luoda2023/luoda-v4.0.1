@@ -757,42 +757,48 @@ impl RendezvousMediator {
 static DIRECT_PORT: std::sync::OnceLock<std::sync::Mutex<i32>> = std::sync::OnceLock::new();
 
 fn get_direct_port() -> i32 {
-    let mtx = DIRECT_PORT.get_or_init(|| {
-        // Keep the documented port stable so entering a bare IP uses the
-        // same port. Fall back to a random port only if 21118 is occupied.
-        std::sync::Mutex::new(DEFAULT_DIRECT_PORT)
-    });
-    *mtx.lock().unwrap()
+ let mtx = DIRECT_PORT.get_or_init(|| {
+ // LUODA: use the persisted (possibly randomized) direct-access-port from config.
+ // `Config::get_or_init_direct_access_port()` returns the user-configured port if
+ // set; otherwise picks a random port in 30000..60000 and persists it (when
+ // `random-direct-access-port` is enabled, which is the default). Falls back to
+ // `DEFAULT_DIRECT_PORT` (21118) when randomization is disabled and no port is
+ // configured.
+ std::sync::Mutex::new(hbb_common::config::Config::get_or_init_direct_access_port())
+ });
+ *mtx.lock().unwrap()
 }
 
 /// Mark the current port as failed (e.g. port already in use),
-/// incrementing to the next port (21118 → 21119 → 21120 …).
+/// incrementing to the next port (base → base+1 → base+2 …).
 /// Falls back to a random port 20000-40000 only after 100 consecutive increments.
 fn invalidate_direct_port() {
-    if let Some(mtx) = DIRECT_PORT.get() {
-        let mut port = mtx.lock().unwrap();
-        let failed_port = *port;
-        if *port < DEFAULT_DIRECT_PORT + 100 {
-            *port += 1;
-        } else {
-            *port = rand::thread_rng().gen_range(20000..40000);
-        }
-        log::info!("Direct port {} was unavailable, trying {}", failed_port, *port);
-    }
+ if let Some(mtx) = DIRECT_PORT.get() {
+ let mut port = mtx.lock().unwrap();
+ let failed_port = *port;
+ let base = hbb_common::config::Config::get_or_init_direct_access_port();
+ if *port < base + 100 {
+ *port += 1;
+ } else {
+ *port = rand::thread_rng().gen_range(20000..40000);
+ }
+ log::info!("Direct port {} was unavailable, trying {}", failed_port, *port);
+ }
 }
 
-/// Reset the direct port back to DEFAULT_DIRECT_PORT (21118).
+/// Reset the direct port back to the configured/randomized base port.
 /// Called when the listener exits (e.g. service stopped) so the next
-/// restart will try the canonical port first instead of being stuck
+/// restart will try the configured port first instead of being stuck
 /// on a fallback port forever.
 fn reset_direct_port() {
-    if let Some(mtx) = DIRECT_PORT.get() {
-        let mut port = mtx.lock().unwrap();
-        if *port != DEFAULT_DIRECT_PORT {
-            log::info!("Resetting direct port from {} back to {}", *port, DEFAULT_DIRECT_PORT);
-            *port = DEFAULT_DIRECT_PORT;
-        }
-    }
+ if let Some(mtx) = DIRECT_PORT.get() {
+ let mut port = mtx.lock().unwrap();
+ let base = hbb_common::config::Config::get_or_init_direct_access_port();
+ if *port != base {
+ log::info!("Resetting direct port from {} back to {}", *port, base);
+ *port = base;
+ }
+ }
 }
 
 pub fn ensure_direct_port() -> i32 {

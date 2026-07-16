@@ -1239,25 +1239,62 @@ impl Config {
         option2bool(k, &Self::get_option(k))
     }
 
-    pub fn set_option(k: String, v: String) {
-        if !is_option_can_save(&OVERWRITE_SETTINGS, &k, &DEFAULT_SETTINGS, &v) {
-            let mut config = CONFIG2.write().unwrap();
-            if config.options.remove(&k).is_some() {
-                config.store();
-            }
-            return;
-        }
-        let mut config = CONFIG2.write().unwrap();
-        let v2 = if v.is_empty() { None } else { Some(&v) };
-        if v2 != config.options.get(&k) {
-            if v2.is_none() {
-                config.options.remove(&k);
-            } else {
-                config.options.insert(k, v);
-            }
-            config.store();
-        }
-    }
+ pub fn set_option(k: String, v: String) {
+ if !is_option_can_save(&OVERWRITE_SETTINGS, &k, &DEFAULT_SETTINGS, &v) {
+ let mut config = CONFIG2.write().unwrap();
+ if config.options.remove(&k).is_some() {
+ config.store();
+ }
+ return;
+ }
+ let mut config = CONFIG2.write().unwrap();
+ let v2 = if v.is_empty() { None } else { Some(&v) };
+ if v2 != config.options.get(&k) {
+ if v2.is_none() {
+ config.options.remove(&k);
+ } else {
+ config.options.insert(k, v);
+ }
+ config.store();
+ }
+ }
+
+ /// LUODA v2.2.1: Resolve the local direct-access port.
+ ///
+ /// Behaviour:
+ /// 1. If `OPTION_DIRECT_ACCESS_PORT` is set and parses to a valid i32 > 0,
+ /// return that value (user explicit config wins).
+ /// 2. Otherwise, if `OPTION_RANDOM_DIRECT_ACCESS_PORT` is not "N" (default
+ /// enabled), pick a random port in 30000..60000, persist it back to
+ /// `OPTION_DIRECT_ACCESS_PORT` so subsequent launches stay stable, and
+ /// return that value.
+ /// 3. Otherwise (random disabled and no explicit port), return
+ /// `DEFAULT_DIRECT_PORT`.
+ ///
+ /// Public so the direct server (`src/rendezvous_mediator.rs::direct_server`)
+ /// can bind to the same port the client is going to dial from the rendezvous
+ /// server.
+ pub fn get_or_init_direct_access_port() -> i32 {
+ let raw = Self::get_option(keys::OPTION_DIRECT_ACCESS_PORT);
+ if let Ok(n) = raw.parse::<i32>() {
+ if n > 0 && n < 65536 {
+ return n;
+ }
+ }
+ let random_enabled =
+ !matches!(Self::get_option(keys::OPTION_RANDOM_DIRECT_ACCESS_PORT).as_str(), "N");
+ if random_enabled {
+ let mut rng = rand::thread_rng();
+ let port: i32 = rng.gen_range(30_000..60_000);
+ Self::set_option(keys::OPTION_DIRECT_ACCESS_PORT.to_owned(), port.to_string());
+ log::info!(
+ "direct-access-port not configured; picked random port {} and persisted it",
+ port
+ );
+ return port;
+ }
+ DEFAULT_DIRECT_PORT
+ }
 
     pub fn update_id() {
         // to-do: how about if one ip register a lot of ids?
@@ -2855,8 +2892,14 @@ pub mod keys {
     pub const OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION: &str = "allow-remote-config-modification";
     pub const OPTION_ALLOW_NUMERNIC_ONE_TIME_PASSWORD: &str = "allow-numeric-one-time-password";
     pub const OPTION_ENABLE_LAN_DISCOVERY: &str = "enable-lan-discovery";
-    pub const OPTION_DIRECT_SERVER: &str = "direct-server";
-    pub const OPTION_DIRECT_ACCESS_PORT: &str = "direct-access-port";
+pub const OPTION_DIRECT_SERVER: &str = "direct-server";
+pub const OPTION_DIRECT_ACCESS_PORT: &str = "direct-access-port";
+/// LUODA v2.2.1: When enabled ("Y", the default), the local direct-access-port
+/// is randomly picked and persisted on first launch. This avoids port collisions
+/// when two machines behind the same NAT use the public IP for direct connection.
+/// When disabled ("N"), the configured `direct-access-port` (or
+/// `DEFAULT_DIRECT_PORT`) is used as-is.
+pub const OPTION_RANDOM_DIRECT_ACCESS_PORT: &str = "random-direct-access-port";
     pub const OPTION_WHITELIST: &str = "whitelist";
     pub const OPTION_ALLOW_AUTO_DISCONNECT: &str = "allow-auto-disconnect";
     pub const OPTION_AUTO_DISCONNECT_TIMEOUT: &str = "auto-disconnect-timeout";

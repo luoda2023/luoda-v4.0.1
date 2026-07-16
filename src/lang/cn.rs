@@ -546,7 +546,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Remove wallpaper during incoming sessions", "接受会话时移除桌面壁纸"),
         ("Test", "测试"),
         ("display_is_plugged_out_msg", "显示器被拔出，切换到第一个显示器。"),
-        ("No displays", "没有显示器。"),
+        ("No displays", "没有显示器。\n\n此为 VPS / 无显示器主机常见情况。请任选其一：\n1) 在被控端安装 LUODA amyuni 虚拟显示驱动；\n2) 接一个 HDMI/DP 假负载（欺骗器）到显卡接口；\n3) 改用『文件传输 / 终端 / 端口转发』等不需要画面的功能。\n操作完后请重启被控端 LUODA 服务再重新连接。"),
         ("Open in new window", "在新的窗口中打开"),
         ("Show displays as individual windows", "在单个窗口中打开显示器"),
         ("Use all my displays for the remote session", "将我的所有显示器用于远程会话"),
