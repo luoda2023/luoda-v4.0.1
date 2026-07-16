@@ -17,12 +17,12 @@ import 'package:get/get.dart';
 import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
-import '../../mobile/pages/connection_page.dart';
 import '../../mobile/pages/server_page.dart';
-import '../../mobile/pages/settings_page.dart';
 import '../components/avatar.dart';
 import '../components/chat_bubble.dart';
 import '../components/server_connection_bar.dart';
+import '../mobile/mobile_device_page.dart';
+import '../mobile/mobile_me_page.dart';
 import '../states/app_state.dart';
 import '../states/chat_message_state.dart';
 import '../states/conversation_state.dart';
@@ -137,6 +137,13 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
     connect(context, id);
   }
 
+  /// 从「设备」页发起会话：选中会话并切回「消息」tab，进入聊天详情。
+  void _startChatFromDevice(String id) {
+    _appState.selectConversation(id);
+    _convState.markRead(id);
+    setState(() => _tabIndex = 0);
+  }
+
   // ============ 布局 ============
 
   @override
@@ -161,9 +168,9 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
   Widget _buildTabBody() {
     final tabs = <Widget>[
       _buildMessageListPage(),
-      ConnectionPage(appBarActions: const []),
+      MobileDevicePage(onStartChat: _startChatFromDevice),
       if (isAndroid) ServerPage(),
-      SettingsPage(),
+      const MobileMePage(),
     ];
     return tabs[_tabIndex.clamp(0, tabs.length - 1)];
   }

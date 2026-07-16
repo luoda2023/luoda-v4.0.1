@@ -16,6 +16,10 @@ class Conversation {
  final String? avatarText;
  final String? avatarUrl;
 
+ /// LUODA: 设备平台（windows/macos/linux/android/ios/server/unknown），
+ /// 用于在设备列表显示对应图标（与 PC 端 DeviceCard 一致）。
+ final String platform;
+
  /// LUODA: 真实的 LUODA peer ID（用于调 bind.queryOnlines 查在线状态）。
  /// 空字符串表示这条会话不是真实设备（例如 mock 项、文件传输助手等），
  /// 不参与在线状态查询，绿点永远不亮。
@@ -35,6 +39,7 @@ class Conversation {
  this.isGroup = false,
  this.avatarText,
  this.avatarUrl,
+ this.platform = '',
  this.peerId = '',
  this.isOnline = false,
  });
@@ -48,6 +53,7 @@ class Conversation {
  bool? isGroup,
  String? avatarText,
  String? avatarUrl,
+ String? platform,
  String? peerId,
  bool? isOnline,
  }) {
@@ -61,6 +67,7 @@ class Conversation {
  isGroup: isGroup ?? this.isGroup,
  avatarText: avatarText ?? this.avatarText,
  avatarUrl: avatarUrl ?? this.avatarUrl,
+ platform: platform ?? this.platform,
  peerId: peerId ?? this.peerId,
  isOnline: isOnline ?? this.isOnline,
  );
@@ -89,6 +96,7 @@ class ConversationState extends GetxController {
  unreadCount: 0,
  isGroup: false,
  avatarText: '办',
+ platform: 'windows',
  // peerId 留空 -> 不参与在线查询
  ),
  const Conversation(
@@ -98,6 +106,7 @@ class ConversationState extends GetxController {
  unreadCount: 2,
  isGroup: false,
  avatarText: '家',
+ platform: 'server',
  ),
  const Conversation(
  id: 'dev_003',
@@ -106,6 +115,7 @@ class ConversationState extends GetxController {
  unreadCount: 0,
  isGroup: false,
  avatarText: '会',
+ platform: 'linux',
  ),
  ];
  }
@@ -133,6 +143,7 @@ class ConversationState extends GetxController {
  isOnline: false,
  lastMessage: '未知',
  avatarText: avatarText,
+ platform: p.platform,
  );
  }).toList();
  conversations.value = list;
