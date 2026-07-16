@@ -130,6 +130,7 @@ class BindingState extends GetxController {
 
   /// 启动自动同步：立即同步一次，之后每 30 分钟一次。
   void startAutoSync() {
+    if (isWeb) return; // 浏览器无局域网能力，跳过周期性发现（移动/桌面端照常）
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 30), (_) => syncNow());
     syncNow();

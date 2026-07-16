@@ -240,6 +240,8 @@ class PermissionSetupBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Android 专属权限流程：iOS / 桌面不需要，直接隐藏，避免无效提示。
+    if (!isAndroid) return const SizedBox.shrink();
     return FutureBuilder<String>(
       future: getPermissionSetupState(),
       builder: (context, snap) {
