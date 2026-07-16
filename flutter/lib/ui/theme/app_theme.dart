@@ -65,7 +65,7 @@ class AppTheme {
   );
 
   /// Card 主题（浅色）
-  static final CardThemeData _cardTheme = CardThemeData(
+  static final CardTheme _cardTheme = CardTheme(
     margin: EdgeInsets.zero,
     elevation: 0,
     color: AppColors.cardBg,
@@ -73,7 +73,7 @@ class AppTheme {
   );
 
   /// Card 主题（深色）
-  static final CardThemeData _cardThemeDark = CardThemeData(
+  static final CardTheme _cardThemeDark = CardTheme(
     margin: EdgeInsets.zero,
     elevation: 0,
     color: AppColors.cardBgDark,
@@ -81,7 +81,7 @@ class AppTheme {
   );
 
   /// Dialog 主题（浅色）
-  static final DialogThemeData _dialogTheme = DialogThemeData(
+  static final DialogTheme _dialogTheme = DialogTheme(
     backgroundColor: AppColors.cardBg,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     elevation: 4,
@@ -89,7 +89,7 @@ class AppTheme {
   );
 
   /// Dialog 主题（深色）
-  static final DialogThemeData _dialogThemeDark = DialogThemeData(
+  static final DialogTheme _dialogThemeDark = DialogTheme(
     backgroundColor: AppColors.cardBgDark,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     elevation: 4,
@@ -97,7 +97,7 @@ class AppTheme {
   );
 
   /// TabBar 主题（浅色）
-  static final TabBarThemeData _tabBarTheme = TabBarThemeData(
+  static final TabBarTheme _tabBarTheme = TabBarTheme(
     indicator: const UnderlineTabIndicator(
       borderSide: BorderSide(width: 2, color: AppColors.primaryGreen),
     ),
@@ -106,7 +106,7 @@ class AppTheme {
   );
 
   /// TabBar 主题（深色）
-  static final TabBarThemeData _tabBarThemeDark = TabBarThemeData(
+  static final TabBarTheme _tabBarThemeDark = TabBarTheme(
     indicator: const UnderlineTabIndicator(
       borderSide: BorderSide(width: 2, color: AppColors.primaryGreen),
     ),
@@ -118,7 +118,7 @@ class AppTheme {
   static final InputDecorationTheme _inputDecorationTheme = InputDecorationTheme(
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     filled: true,
-    fillColor: AppColors.cardBg.withValues(alpha: 128),
+    fillColor: AppColors.cardBg.withOpacity(0.5),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   );
 
@@ -127,7 +127,7 @@ class AppTheme {
       InputDecorationTheme(
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     filled: true,
-    fillColor: AppColors.cardBgDark.withValues(alpha: 128),
+    fillColor: AppColors.cardBgDark.withOpacity(0.5),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   );
 

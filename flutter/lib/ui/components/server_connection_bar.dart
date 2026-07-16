@@ -35,7 +35,7 @@ class ServerConnectionBar extends StatelessWidget {
  bottomRight: Radius.circular(0),
  ),
  border: Border(
- top: BorderSide(color: color.withValues(alpha: 0.25), width: 1),
+ top: BorderSide(color: color.withOpacity(0.25), width: 1),
  ),
  ),
  child: Row(

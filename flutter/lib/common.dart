@@ -61,6 +61,41 @@ final isWebDesktop = isWebDesktop_;
 final isWebOnWindows = isWebOnWindows_;
 final isWebOnLinux = isWebOnLinux_;
 final isWebOnMacOs = isWebOnMacOS_;
+
+// LUODA desktop multi-window globals. These were originally declared in
+// main.dart but were dropped by the WeChat-style UI rewrite of the app entry.
+// common.dart / models / desktop widgets still reference them, so they live
+// here (WindowType and windowManager are already in scope). They are assigned
+// during the native desktop window bootstrap; in the new single-entry UI they
+// default to null and are only meaningful for spawned sub-windows.
+int? kWindowId;
+WindowType? kWindowType;
+
+bool _isCmReadyToShow = false;
+
+/// Show the Connection Manager window (a `--cm` desktop instance).
+/// Best-effort: guarded so a missing native window never crashes the caller.
+Future<void> showCmWindow({bool isStartup = false}) async {
+  _isCmReadyToShow = true;
+  if (isStartup) return;
+  try {
+    await windowManager.show();
+    await windowManager.focus();
+  } catch (e) {
+    debugPrint('showCmWindow failed: $e');
+  }
+}
+
+/// Hide the Connection Manager window.
+Future<void> hideCmWindow({bool isStartup = false}) async {
+  _isCmReadyToShow = true;
+  try {
+    await windowManager.hide();
+  } catch (e) {
+    debugPrint('hideCmWindow failed: $e');
+  }
+}
+
 var isMobile = isAndroid || isIOS;
 var version = '';
 int androidVersion = 0;

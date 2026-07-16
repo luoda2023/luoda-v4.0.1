@@ -7754,13 +7754,10 @@ class LuodaImpl implements Luoda {
       );
 
   String getSettingsTabConfig({dynamic hint}) {
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_get_settings_tab_config(),
-      parseSuccessData: _wire2api_String,
-      constMeta: kGetSettingsTabConfigConstMeta,
-      argValues: [],
-      hint: hint,
-    ));
+    // LUODA: the Rust side (LuodaWire) does not expose wire_get_settings_tab_config,
+    // so this bridge call cannot be generated. Return an empty tab config so the
+    // settings page compiles and runs without custom tabs.
+    return '[]';
   }
 
   FlutterRustBridgeTaskConstMeta get kGetSettingsTabConfigConstMeta =>
