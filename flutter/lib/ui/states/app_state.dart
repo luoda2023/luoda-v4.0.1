@@ -1,6 +1,7 @@
 // flutter/lib/ui/states/app_state.dart
 // 应用全局状态：当前导航/会话/窗口
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// 主导航区域
@@ -83,9 +84,16 @@ class AppState extends GetxController {
  set serverStatus(ServerConnectionStatus v) => _serverStatus.value = v;
 
  /// 暗色模式开关（驱动 GetMaterialApp 的 themeMode，设置页可切换）
+ /// GetMaterialApp 会自动响应 Get.changeThemeMode，所以切换时同步调用它。
  final RxBool isDarkMode = false.obs;
- void toggleDarkMode() => isDarkMode.value = !isDarkMode.value;
- void setDarkMode(bool v) => isDarkMode.value = v;
+ void toggleDarkMode() {
+   isDarkMode.value = !isDarkMode.value;
+   Get.changeThemeMode(isDarkMode.value ? ThemeMode.dark : ThemeMode.light);
+ }
+ void setDarkMode(bool v) {
+   isDarkMode.value = v;
+   Get.changeThemeMode(v ? ThemeMode.dark : ThemeMode.light);
+ }
 
  /// 全部会话未读数合计（侧栏会话图标角标用）
  final RxInt totalUnread = 0.obs;

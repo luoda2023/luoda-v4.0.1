@@ -74,25 +74,53 @@ WindowType? kWindowType;
 bool _isCmReadyToShow = false;
 
 /// Show the Connection Manager window (a `--cm` desktop instance).
-/// Best-effort: guarded so a missing native window never crashes the caller.
+/// Faithful port of the original main.dart implementation.
 Future<void> showCmWindow({bool isStartup = false}) async {
-  _isCmReadyToShow = true;
-  if (isStartup) return;
-  try {
-    await windowManager.show();
-    await windowManager.focus();
-  } catch (e) {
-    debugPrint('showCmWindow failed: $e');
+  if (isStartup) {
+    WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
+        size: kConnectionManagerWindowSizeClosedChat, alwaysOnTop: true);
+    await windowManager.waitUntilReadyToShow(windowOptions, null);
+    bind.mainHideDock();
+    await Future.wait([
+      windowManager.show(),
+      windowManager.focus(),
+      windowManager.setOpacity(1)
+    ]);
+    // ensure initial window size to be changed
+    await windowManager.setSizeAlignment(
+        kConnectionManagerWindowSizeClosedChat, Alignment.topRight);
+    _isCmReadyToShow = true;
+  } else if (_isCmReadyToShow) {
+    if (await windowManager.getOpacity() != 1) {
+      await windowManager.setOpacity(1);
+      await windowManager.focus();
+      await windowManager.minimize(); //needed
+      await windowManager.setSizeAlignment(
+          kConnectionManagerWindowSizeClosedChat, Alignment.topRight);
+      windowOnTop(null);
+    }
   }
 }
 
 /// Hide the Connection Manager window.
+/// Faithful port of the original main.dart implementation.
 Future<void> hideCmWindow({bool isStartup = false}) async {
-  _isCmReadyToShow = true;
-  try {
+  if (isStartup) {
+    WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
+        size: kConnectionManagerWindowSizeClosedChat);
+    windowManager.setOpacity(0);
+    await windowManager.waitUntilReadyToShow(windowOptions, null);
+    bind.mainHideDock();
+    await windowManager.minimize();
     await windowManager.hide();
-  } catch (e) {
-    debugPrint('hideCmWindow failed: $e');
+    _isCmReadyToShow = true;
+  } else if (_isCmReadyToShow) {
+    if (await windowManager.getOpacity() != 0) {
+      await windowManager.setOpacity(0);
+      bind.mainHideDock();
+      await windowManager.minimize();
+      await windowManager.hide();
+    }
   }
 }
 
