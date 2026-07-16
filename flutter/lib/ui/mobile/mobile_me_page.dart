@@ -48,7 +48,7 @@ class MobileMePage extends StatelessWidget {
     return Obx(() {
       final id = gFFI.serverModel.serverId.value.text.trim();
       final displayId = id.isEmpty ? '未连接服务器' : id;
-      final name = id.isEmpty ? '我的设备' : 'LUODA 设备';
+      final name = id.isEmpty ? '我的设备' : 'LDesk 设备';
       return Container(
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
         decoration: const BoxDecoration(
@@ -89,7 +89,7 @@ class MobileMePage extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text('LUODA ID: $displayId',
+                        child: Text('LDesk ID: $displayId',
                             style: const TextStyle(
                                 color: Colors.white70, fontSize: 13),
                             maxLines: 1,
@@ -99,7 +99,7 @@ class MobileMePage extends StatelessWidget {
                         GestureDetector(
                           onTap: () {
                             Clipboard.setData(ClipboardData(text: id));
-                            Get.snackbar('已复制', 'LUODA ID 已复制到剪贴板',
+                            Get.snackbar('已复制', 'LDesk ID 已复制到剪贴板',
                                 snackPosition: SnackPosition.BOTTOM,
                                 duration: const Duration(seconds: 1));
                           },
@@ -160,7 +160,7 @@ class MobileMePage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const _Row(icon: Icons.info_outline, title: '版本', trailingText: 'LUODA v4.0.1'),
+          const _Row(icon: Icons.info_outline, title: '版本', trailingText: 'LDesk v4.0.1'),
           const _Divider(),
           _Row(
             icon: Icons.privacy_tip,

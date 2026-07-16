@@ -5,10 +5,13 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = LUODA
+PRODUCT_NAME = LDesk
+
+// Keep the Swift module name stable so MainMenu.xib / IBOutlets keep resolving after the rename.
+PRODUCT_MODULE_NAME = Luoda
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.luoda.remote
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 LUODA. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 LDesk. All rights reserved.

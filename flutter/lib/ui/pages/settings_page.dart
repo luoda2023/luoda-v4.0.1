@@ -101,7 +101,7 @@ class _SettingsPageState extends State<SettingsPage> {
  ListTile(
  leading: const Icon(Icons.info, color: AppColors.primaryGreen),
  title: const Text('版本'),
- subtitle: const Text('LUODA v2.2.1'),
+ subtitle: const Text('LDesk v2.2.1'),
  ),
  ListTile(
  leading: const Icon(Icons.privacy_tip, color: AppColors.primaryGreen),

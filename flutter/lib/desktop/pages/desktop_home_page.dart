@@ -157,7 +157,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "LUODA 远程协助",
+                            "LDesk 远程协助",
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -243,7 +243,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
             Text(
-              "LUODA 远程协助",
+              "LDesk 远程协助",
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,

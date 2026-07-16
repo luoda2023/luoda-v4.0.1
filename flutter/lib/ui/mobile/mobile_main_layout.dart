@@ -204,7 +204,7 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
       color: AppColors.background,
       child: Row(
         children: [
-          const Text('LUODA', style: MobileTextStyles.navTitle),
+          const Text('LDesk', style: MobileTextStyles.navTitle),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.search,
