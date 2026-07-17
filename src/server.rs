@@ -639,9 +639,14 @@ pub async fn start_server(is_server: bool, no_server: bool) {
                 if let Err(err) = crate::ipc::start("") {
                     log::error!("Failed to start ipc (attempt {}): {}", attempts, err);
                     if crate::is_server() && attempts < 3 {
-                        log::error!("ipc is occupied by another process, try kill it");
-                        std::thread::spawn(stop_main_window_process).join().ok();
-                        // Give the old process time to release the pipe/socket.
+                        // NOTE: Do NOT call `stop_main_window_process()` here.
+                        // That kills the *user's visible main-window GUI* (which is
+                        // what actually makes the app appear to "fail to open" on
+                        // launch). Killing it just to free an occupied IPC pipe is
+                        // far worse than the pipe being briefly unavailable.
+                        // Instead we just retry; after 3 attempts the code below
+                        // continues without exiting (rendezvous still runs).
+                        log::warn!("ipc is occupied by another process, retrying (will NOT kill GUI)");
                         std::thread::sleep(std::time::Duration::from_millis(1500));
                         continue;
                     }

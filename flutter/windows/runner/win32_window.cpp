@@ -129,7 +129,12 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
           LoadIcon(window_class.hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
     }
     
-    window_class.hbrBackground = 0;
+    // Use a solid system window-color brush instead of NULL (0). A NULL
+    // background brush leaves the window showing whatever was underneath
+    // (black/garbage) during the gap before Flutter paints its first frame,
+    // which caused the "flashing/flicker" at startup. Painting a stable
+    // background eliminates that flash.
+    window_class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     window_class.lpszMenuName = nullptr;
     window_class.lpfnWndProc = Win32Window::WndProc;
     RegisterClass(&window_class);
