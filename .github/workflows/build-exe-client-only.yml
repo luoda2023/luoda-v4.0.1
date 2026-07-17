@@ -1,0 +1,204 @@
+name: Build LDesk Client-only Windows EXE
+# 独立出包：仅含"被控端定制版"弹窗（显示真实 ID / 密码 / IP），
+# 复用现有 CLIENT_ONLY 定制变体，产物名为 LDesk-Client-x64.exe。
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, v2.0.0, v2.0.1, 2.1.1, v2.2.1, v4.0.1]
+    paths:
+      - 'build.rs'
+      - 'src/**'
+      - 'libs/**'
+      - 'flutter/**'
+      - 'res/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vcpkg.json'
+      - '.github/workflows/build-exe-client-only.yml'
+permissions:
+  contents: write
+  actions: read
+  checks: read
+  deployments: write
+  packages: read
+jobs:
+  build-exe-client-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64]
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-exe-client-only-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-exe-client-only-${{ matrix.arch }}-${{ runner.os }}-
+      - name: Setup Flutter
+        if: matrix.arch == 'x64'
+        timeout-minutes: 10
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: '1.88'
+          targets: ${{ matrix.arch == 'x86' && 'i686-pc-windows-msvc' || '' }}
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Ensure correct cargo version
+        run: |
+          rustup default 1.88
+          cargo --version
+      - name: Configure Git for private forks
+        shell: bash
+        run: git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Flutter pub get (FFI bridge committed)
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "=== FFI bridge already committed, skipping codegen ==="
+          cd flutter && flutter pub get && cd ..
+          echo "=== Verifying committed generated bridge ==="
+          ls -la flutter/lib/generated_bridge.dart || echo "ERROR: generated_bridge.dart missing!"
+          head -5 flutter/lib/generated_bridge.dart || echo "ERROR: Cannot read file!"
+      - name: Setup vcpkg
+        shell: bash
+        run: |
+          if [ ! -d "C:/vcpkg" ]; then
+            git clone https://github.com/Microsoft/vcpkg.git C:/vcpkg
+          fi
+          cd C:/vcpkg
+          git fetch origin
+          git checkout 120deac3062162151622ca4860575a33844ba10b
+          ./bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=C:/vcpkg" >> $GITHUB_ENV
+          echo "VCPKG_INSTALLATION_ROOT=C:/vcpkg" >> $GITHUB_ENV
+          echo "C:/vcpkg" >> $GITHUB_PATH
+      - name: Cache vcpkg installed packages
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-exe-client-only-${{ matrix.arch }}-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-exe-client-only-${{ matrix.arch }}-${{ runner.os }}-
+      - name: Install vcpkg deps
+        timeout-minutes: 40
+        shell: bash
+        run: |
+          triplet="${{ matrix.arch == 'x86' && 'x86-windows-static' || 'x64-windows-static' }}"
+          vcpkg install --triplet "$triplet" --x-install-root="$VCPKG_ROOT/installed"
+      - name: Build Rust
+        timeout-minutes: 50
+        shell: bash
+        run: |
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            cargo build --release --target i686-pc-windows-msvc
+          else
+            cargo build --release --features flutter
+          fi
+        env:
+          VCPKG_ROOT: C:\vcpkg
+          VCPKG_DEFAULT_TRIPLET: ${{ matrix.arch == 'x86' && 'x86-windows-static' || 'x64-windows-static' }}
+          CXXFLAGS: -include cstdint
+          SODIUM_LIB_DIR: C:\vcpkg\installed\${{ matrix.arch == 'x86' && 'x86-windows-static' || 'x64-windows-static' }}\lib
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          CARGO_NET_RETRY: 10
+      - name: Build Flutter Windows (client-only)
+        if: matrix.arch == 'x64'
+        timeout-minutes: 15
+        run: |
+          cd flutter
+          flutter clean
+          flutter build windows --release --dart-define=CLIENT_ONLY=true
+      - name: Sign executable with LUODA icon
+        shell: bash
+        run: |
+          choco install rcedit -y
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            rcedit "target/i686-pc-windows-msvc/release/luoda.dll" --set-icon "res/icon.ico" || true
+            rcedit "target/i686-pc-windows-msvc/release/service.exe" --set-icon "res/icon.ico" || true
+            rcedit "target/i686-pc-windows-msvc/release/naming.exe" --set-icon "res/icon.ico" || true
+          else
+            rcedit "flutter/build/windows/x64/runner/Release/luoda.exe" --set-icon "res/icon.ico"
+          fi
+      - name: Build portable packer (rename to LDesk-Client.exe)
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            RUST_TARGET="i686-pc-windows-msvc"
+            mkdir -p SignOutput
+            if [ -f "target/${RUST_TARGET}/release/service.exe" ]; then
+              cp "target/${RUST_TARGET}/release/service.exe" SignOutput/LDesk-Client-service-x86.exe
+            fi
+            if [ -f "target/${RUST_TARGET}/release/naming.exe" ]; then
+              cp "target/${RUST_TARGET}/release/naming.exe" SignOutput/LDesk-Client-naming-x86.exe
+            fi
+            echo "=== x86 CLI executables ==="
+            ls -la SignOutput/
+          else
+            mkdir -p Release
+            cp -r flutter/build/windows/x64/runner/Release/* Release/
+            # 定制版客户端：将主程序重命名为 LDesk-Client.exe，
+            # 触发 Rust is_custom_client() 的运行时回退（exe 名含 'client'），
+            # 使引擎以定制版（被控端）模式运行，显示真实 ID / 密码 / IP。
+            mv Release/luoda.exe Release/LDesk-Client.exe
+            if [ ! -f "Release/sciter.dll" ]; then
+              echo "=== Downloading sciter.dll ==="
+              SCITER_URL="https://github.com/c-smile/sciter-sdk/raw/master/bin/windows/x64/sciter.dll"
+              for i in 1 2 3; do
+                if curl -sL -o Release/sciter.dll "$SCITER_URL"; then
+                  echo "sciter.dll downloaded successfully"
+                  break
+                fi
+                echo "Attempt $i failed, retrying..."
+                sleep 3
+              done
+            fi
+            ls -la Release/sciter.dll 2>/dev/null || echo "WARN: sciter.dll not found!"
+            echo "=== Release directory ==="
+            ls -la Release/
+            pip3 install brotli
+            cd libs/portable
+            python3 generate.py -f ../../Release/ -o . -e ../../Release/LDesk-Client.exe
+            cd ../..
+            cd libs/portable
+            cargo build --release
+            cd ../..
+            mkdir -p SignOutput
+            cp target/release/luoda-portable-packer.exe SignOutput/LDesk-Client-x64.exe
+            echo "=== Final client-only EXE ==="
+            ls -la SignOutput/LDesk-Client-x64.exe
+          fi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LDesk-Client-x64
+          path: SignOutput/
+      - name: Upload runtime logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-logs-client-only-${{ matrix.arch }}
+          path: .auto_build_logs/
+      - name: Upload to Release (nightly x64 only)
+        if: matrix.arch == 'x64'
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: nightly
+          files: SignOutput/LDesk-Client-x64.exe
