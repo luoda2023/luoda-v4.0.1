@@ -5,7 +5,7 @@ permissions:
   deployments: write
   packages: read
 
-name: Build LUODA macOS DMG
+name: Build LDesk macOS DMG
 
 on:
   workflow_dispatch:
@@ -158,21 +158,21 @@ jobs:
         run: |
           brew install create-dmg
           mkdir -p dmg_folder
-          cp -r flutter/build/macos/Build/Products/Release/LUODA.app dmg_folder/
-          create-dmg --volname "LUODA" --window-size 800 400 --app-drop-link 600 185 "LUODA-1.0.dmg" dmg_folder/
+          cp -r flutter/build/macos/Build/Products/Release/LDesk.app dmg_folder/
+          create-dmg --volname "LDesk" --window-size 800 400 --app-drop-link 600 185 "LDesk-1.0.dmg" dmg_folder/
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
-          name: LUODA-DMG
-          path: LUODA-1.0.dmg
+          name: LDesk-DMG
+          path: LDesk-1.0.dmg
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
           tag_name: nightly
-          files: LUODA-1.0.dmg
+          files: LDesk-1.0.dmg
       - name: Upload runtime logs (always)
         if: always()
         uses: actions/upload-artifact@v4
