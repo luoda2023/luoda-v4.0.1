@@ -47,7 +47,7 @@ class _ClientTitleBarState extends State<ClientTitleBar> {
                 child: Text('LDesk',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600)),
               ),
             ),
@@ -167,7 +167,7 @@ class _ClientDeviceInfoPageState extends State<ClientDeviceInfoPage> {
           const SizedBox(height: 6),
           const Text('将以下信息发给对方,对方即可连接本机',
               style:
-                  TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  TextStyle(fontSize: 14, color: AppColors.textSecondary)),
           const SizedBox(height: 20),
           Expanded(
             child: Container(
@@ -245,13 +245,13 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(label,
                   style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0x73191919))),
+                      color: AppColors.textSecondary)),
               const SizedBox(height: 4),
               SelectableText(value,
                   style: TextStyle(
-                      fontSize: monospace ? 16 : 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       fontFamily: monospace ? 'monospace' : null,
                       letterSpacing: monospace ? 1.0 : 0,
