@@ -130,6 +130,17 @@ class _ToolbarTheme {
   static const double iconRadius = 8;
   static const double elevation = 3;
 
+  // Labeled (icon + text) button layout for the new remote toolbar.
+  static const double labeledButtonWidth = 58;
+  static const double labeledButtonHeight = 50;
+  static const double labeledIconSize = 20;
+  static const double labeledFontSize = 11;
+  static const Color barBackground = Color(0xFF2B2F33);
+  static const Color barForeground = Colors.white;
+  // Transparent until hover, matching the reference remote window style.
+  static const Color labelButtonColor = Colors.transparent;
+  static const Color labelButtonHover = Color(0x24FFFFFF);
+
   static double dividerSpaceToAction = isWindows ? 8 : 14;
 
   static double menuBorderRadius = isWindows ? 5.0 : 7.0;
@@ -369,13 +380,23 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   }
 
   Widget _buildToolbar(BuildContext context) {
-    final List<Widget> toolbarItems = [];
-    toolbarItems.add(_PinMenu(state: widget.state));
-    if (!isWebDesktop) {
-      toolbarItems.add(_MobileActionMenu(ffi: widget.ffi));
+    // Left group: primary remote-control functions (matches the reference layout).
+    final List<Widget> leftItems = [];
+    leftItems
+        .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
+    leftItems.add(_TerminalMenu(id: widget.id, ffi: widget.ffi));
+    leftItems.add(_FileMenu(id: widget.id, ffi: widget.ffi));
+    leftItems.add(_ClipboardMenu(id: widget.id, ffi: widget.ffi));
+    // Do not show keyboard for camera connection type.
+    if (widget.ffi.connType == ConnType.defaultConn) {
+      leftItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
-
-    toolbarItems.add(Obx(() {
+    leftItems.add(_ScreenshotButton(id: widget.id, ffi: widget.ffi));
+    leftItems.add(_SystemMenu(id: widget.id, ffi: widget.ffi));
+    if (!isWebDesktop) {
+      leftItems.add(_MobileActionMenu(ffi: widget.ffi));
+    }
+    leftItems.add(Obx(() {
       if (PrivacyModeState.find(widget.id).isEmpty &&
           pi.displaysCount.value > 1) {
         return _MonitorMenu(
@@ -387,25 +408,22 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       }
     }));
 
-    toolbarItems
-        .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
-    toolbarItems.add(_DisplayMenu(
+    // Right group: view / session controls.
+    final List<Widget> rightItems = [];
+    rightItems.add(_DisplayMenu(
       id: widget.id,
       ffi: widget.ffi,
       state: widget.state,
       setFullscreen: _setFullscreen,
     ));
-    // Do not show keyboard for camera connection type.
-    if (widget.ffi.connType == ConnType.defaultConn) {
-      toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
-    }
-    toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
+    rightItems.add(_FullscreenButton(setFullscreen: _setFullscreen));
     if (!isWeb) {
-      toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));
+      rightItems.add(_RecordMenu());
     }
-    if (!isWeb) toolbarItems.add(_RecordMenu());
-    toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));
+    rightItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
+    rightItems.add(_PinMenu(state: widget.state));
+
+    final toolbarBorderRadius = BorderRadius.all(Radius.circular(8.0));
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -413,25 +431,26 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
           elevation: _ToolbarTheme.elevation,
           shadowColor: MyTheme.color(context).shadow,
           borderRadius: toolbarBorderRadius,
-          color: Theme.of(context)
-              .menuBarTheme
-              .style
-              ?.backgroundColor
-              ?.resolve(MaterialState.values.toSet()),
+          color: _ToolbarTheme.barBackground,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Theme(
               data: themeData(),
-              child: _ToolbarTheme.borderWrapper(
-                  context,
-                  Row(
-                    children: [
-                      SizedBox(width: _ToolbarTheme.buttonHMargin * 2),
-                      ...toolbarItems,
-                      SizedBox(width: _ToolbarTheme.buttonHMargin * 2)
-                    ],
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  ...leftItems,
+                  Container(
+                    width: 1,
+                    height: 28,
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    color: Colors.white24,
                   ),
-                  toolbarBorderRadius),
+                  ...rightItems,
+                  const SizedBox(width: 8),
+                ],
+              ),
             ),
           ),
         ),
@@ -481,10 +500,11 @@ class _PinMenu extends StatelessWidget {
         tooltip: state.pin ? 'Unpin Toolbar' : 'Pin Toolbar',
         onPressed: state.switchPin,
         color:
-            state.pin ? _ToolbarTheme.blueColor : _ToolbarTheme.inactiveColor,
+            state.pin ? _ToolbarTheme.blueColor : _ToolbarTheme.labelButtonColor,
         hoverColor: state.pin
             ? _ToolbarTheme.hoverBlueColor
-            : _ToolbarTheme.hoverInactiveColor,
+            : _ToolbarTheme.labelButtonHover,
+        label: '固定',
       ),
     );
   }
@@ -504,10 +524,11 @@ class _MobileActionMenu extends StatelessWidget {
               !ffi.dialogManager.mobileActionsOverlayVisible.value),
           color: ffi.dialogManager.mobileActionsOverlayVisible.isTrue
               ? _ToolbarTheme.blueColor
-              : _ToolbarTheme.inactiveColor,
+              : _ToolbarTheme.labelButtonColor,
           hoverColor: ffi.dialogManager.mobileActionsOverlayVisible.isTrue
               ? _ToolbarTheme.hoverBlueColor
-              : _ToolbarTheme.hoverInactiveColor,
+              : _ToolbarTheme.labelButtonHover,
+          label: '移动端',
         ));
   }
 }
@@ -543,8 +564,9 @@ class _MonitorMenu extends StatelessWidget {
         icon: monitorsIcon,
         ffi: ffi,
         width: width.value,
-        color: _ToolbarTheme.blueColor,
-        hoverColor: _ToolbarTheme.hoverBlueColor,
+        color: _ToolbarTheme.labelButtonColor,
+        hoverColor: _ToolbarTheme.labelButtonHover,
+        label: '显示器',
         menuStyle: MenuStyle(
             padding:
                 MaterialStatePropertyAll(EdgeInsets.symmetric(horizontal: 6))),
@@ -756,8 +778,9 @@ class _ControlMenu extends StatelessWidget {
     return _IconSubmenuButton(
         tooltip: 'Control Actions',
         svg: "assets/actions.svg",
-        color: _ToolbarTheme.blueColor,
-        hoverColor: _ToolbarTheme.hoverBlueColor,
+        color: _ToolbarTheme.labelButtonColor,
+        hoverColor: _ToolbarTheme.labelButtonHover,
+        label: '控制',
         ffi: ffi,
         menuChildrenGetter: (_) => toolbarControls(context, id, ffi).map((e) {
               if (e.divider) {
@@ -1034,8 +1057,9 @@ class _DisplayMenuState extends State<_DisplayMenu> {
       tooltip: 'Display Settings',
       svg: "assets/display.svg",
       ffi: widget.ffi,
-      color: _ToolbarTheme.blueColor,
-      hoverColor: _ToolbarTheme.hoverBlueColor,
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '画质',
       menuChildrenGetter: menuChildrenGetter,
     );
   }
@@ -1783,8 +1807,9 @@ class _KeyboardMenu extends StatelessWidget {
         tooltip: 'Keyboard Settings',
         svg: "assets/keyboard_mouse.svg",
         ffi: ffi,
-        color: _ToolbarTheme.blueColor,
-        hoverColor: _ToolbarTheme.hoverBlueColor,
+        color: _ToolbarTheme.labelButtonColor,
+        hoverColor: _ToolbarTheme.labelButtonHover,
+        label: '快捷键',
         menuChildrenGetter: (_) => [
               keyboardMode(),
               localKeyboardType(),
@@ -2058,8 +2083,9 @@ class _ChatMenuState extends State<_ChatMenu> {
           key: chatButtonKey,
           svg: 'assets/chat.svg',
           ffi: widget.ffi,
-          color: _ToolbarTheme.blueColor,
-          hoverColor: _ToolbarTheme.hoverBlueColor,
+          color: _ToolbarTheme.labelButtonColor,
+          hoverColor: _ToolbarTheme.labelButtonHover,
+          label: '聊天',
           menuChildrenGetter: (_) => [textChat(), voiceCall()]);
     }
   }
@@ -2070,7 +2096,7 @@ class _ChatMenuState extends State<_ChatMenu> {
       tooltip: 'Text chat',
       key: chatButtonKey,
       onPressed: _textChatOnPressed,
-      color: _ToolbarTheme.blueColor,
+      color: _ToolbarTheme.labelButtonColor,
       hoverColor: _ToolbarTheme.hoverBlueColor,
     );
   }
@@ -2162,8 +2188,9 @@ class _VoiceCallMenu extends StatelessWidget {
             return _IconSubmenuButton(
               tooltip: 'Voice call',
               svg: 'assets/voice_call.svg',
-              color: _ToolbarTheme.blueColor,
-              hoverColor: _ToolbarTheme.hoverBlueColor,
+              color: _ToolbarTheme.labelButtonColor,
+              hoverColor: _ToolbarTheme.labelButtonHover,
+              label: '语音',
               menuChildrenGetter: menuChildrenGetter,
               ffi: ffi,
             );
@@ -2203,10 +2230,11 @@ class _RecordMenu extends StatelessWidget {
       onPressed: () => recordingModel.toggle(),
       color: recordingModel.start
           ? _ToolbarTheme.redColor
-          : _ToolbarTheme.blueColor,
+          : _ToolbarTheme.labelButtonColor,
       hoverColor: recordingModel.start
           ? _ToolbarTheme.hoverRedColor
-          : _ToolbarTheme.hoverBlueColor,
+          : _ToolbarTheme.labelButtonHover,
+      label: '录制',
     );
   }
 }
@@ -2230,7 +2258,191 @@ class _CloseMenu extends StatelessWidget {
       },
       color: _ToolbarTheme.redColor,
       hoverColor: _ToolbarTheme.hoverRedColor,
+      label: '关闭',
     );
+  }
+}
+
+class _TerminalMenu extends StatelessWidget {
+  final String id;
+  final FFI ffi;
+  const _TerminalMenu({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return _IconSubmenuButton(
+      tooltip: 'Terminal',
+      icon: Icon(Icons.terminal, color: Colors.white, size: 20),
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '终端',
+      ffi: ffi,
+      menuChildrenGetter: (_) => [
+        MenuButton(
+          child: Text(translate('Open Terminal')),
+          onPressed: () {
+            connect(context, id, isTerminal: true);
+          },
+          ffi: ffi,
+        ),
+      ],
+    );
+  }
+}
+
+class _FileMenu extends StatelessWidget {
+  final String id;
+  final FFI ffi;
+  const _FileMenu({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return _IconSubmenuButton(
+      tooltip: 'File Transfer',
+      svg: "assets/file_transfer.svg",
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '文件',
+      ffi: ffi,
+      menuChildrenGetter: (_) => [
+        MenuButton(
+          child: Text(translate('Open File Transfer')),
+          onPressed: () {
+            connect(context, id, isFileTransfer: true);
+          },
+          ffi: ffi,
+        ),
+      ],
+    );
+  }
+}
+
+class _ClipboardMenu extends StatelessWidget {
+  final String id;
+  final FFI ffi;
+  const _ClipboardMenu({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionId = ffi.sessionId;
+    return _IconSubmenuButton(
+      tooltip: 'Clipboard',
+      icon: Icon(Icons.content_paste, color: Colors.white, size: 20),
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '剪贴板',
+      ffi: ffi,
+      menuChildrenGetter: (_) => [
+        CkbMenuButton(
+          value: bind.sessionGetToggleOptionSync(
+              sessionId: sessionId, arg: kOptionEnableFileCopyPaste),
+          onChanged: (v) {
+            if (v == null) return;
+            bind.sessionToggleOption(
+                sessionId: sessionId, value: kOptionEnableFileCopyPaste);
+          },
+          child: Text(translate('Enable file copy and paste')),
+          ffi: ffi,
+        ),
+        CkbMenuButton(
+          value: bind.sessionGetToggleOptionSync(
+              sessionId: sessionId, arg: kOptionDisableClipboard),
+          onChanged: (v) {
+            if (v == null) return;
+            bind.sessionToggleOption(
+                sessionId: sessionId, value: kOptionDisableClipboard);
+          },
+          child: Text(translate('Disable clipboard')),
+          ffi: ffi,
+        ),
+      ],
+    );
+  }
+}
+
+class _SystemMenu extends StatelessWidget {
+  final String id;
+  final FFI ffi;
+  const _SystemMenu({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionId = ffi.sessionId;
+    return _IconSubmenuButton(
+      tooltip: 'System',
+      icon: Icon(Icons.computer, color: Colors.white, size: 20),
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '系统',
+      ffi: ffi,
+      menuChildrenGetter: (_) => [
+        MenuButton(
+          child: Text(translate('Insert Lock')),
+          onPressed: () => bind.sessionLockScreen(sessionId: sessionId),
+          ffi: ffi,
+        ),
+        MenuButton(
+          child: Text(translate('Insert Ctrl + Alt + Del')),
+          onPressed: () => bind.sessionCtrlAltDel(sessionId: sessionId),
+          ffi: ffi,
+        ),
+        MenuButton(
+          child: Text(translate('Restart Remote Device')),
+          onPressed: () => showRestartRemoteDevice(
+              ffi.ffiModel.pi, id, ffi.sessionId, ffi.dialogManager),
+          ffi: ffi,
+        ),
+      ],
+    );
+  }
+}
+
+class _ScreenshotButton extends StatelessWidget {
+  final String id;
+  final FFI ffi;
+  const _ScreenshotButton({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return _IconMenuButton(
+      assetName: "assets/screen.svg",
+      tooltip: 'Take Screenshot',
+      onPressed: () {
+        if (isDesktop && !isWeb) {
+          bind.sessionTakeScreenshot(sessionId: ffi.sessionId);
+        }
+      },
+      color: _ToolbarTheme.labelButtonColor,
+      hoverColor: _ToolbarTheme.labelButtonHover,
+      label: '截屏',
+    );
+  }
+}
+
+class _FullscreenButton extends StatelessWidget {
+  final Function(bool) setFullscreen;
+  const _FullscreenButton(
+      {Key? key, required this.setFullscreen})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() => _IconMenuButton(
+          assetName: stateGlobal.fullscreen.isTrue
+              ? "assets/fullscreen_exit.svg"
+              : "assets/fullscreen.svg",
+          tooltip: 'Fullscreen',
+          onPressed: () =>
+              setFullscreen(!stateGlobal.fullscreen.isTrue),
+          color: _ToolbarTheme.labelButtonColor,
+          hoverColor: _ToolbarTheme.labelButtonHover,
+          label: stateGlobal.fullscreen.isTrue ? '退出全屏' : '全屏',
+        ));
   }
 }
 
@@ -2245,6 +2457,7 @@ class _IconMenuButton extends StatefulWidget {
   final double? vMargin;
   final bool topLevel;
   final double? width;
+  final String? label;
   const _IconMenuButton({
     Key? key,
     this.assetName,
@@ -2257,6 +2470,7 @@ class _IconMenuButton extends StatefulWidget {
     this.vMargin,
     this.topLevel = true,
     this.width,
+    this.label,
   }) : super(key: key);
 
   @override
@@ -2273,12 +2487,32 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
         SvgPicture.asset(
           widget.assetName!,
           colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
+          width: widget.label == null ? _ToolbarTheme.buttonSize : _ToolbarTheme.labeledIconSize,
+          height: widget.label == null ? _ToolbarTheme.buttonSize : _ToolbarTheme.labeledIconSize,
         );
+    final inner = widget.label == null
+        ? icon
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              icon,
+              const SizedBox(height: 2),
+              Text(widget.label!,
+                  style: const TextStyle(
+                      fontSize: _ToolbarTheme.labeledFontSize,
+                      color: Colors.white,
+                      fontWeight: FontWeight.normal)),
+            ],
+          );
     var button = SizedBox(
-      width: widget.width ?? _ToolbarTheme.buttonSize,
-      height: _ToolbarTheme.buttonSize,
+      width: widget.width ??
+          (widget.label == null
+              ? _ToolbarTheme.buttonSize
+              : _ToolbarTheme.labeledButtonWidth),
+      height: widget.label == null
+          ? _ToolbarTheme.buttonSize
+          : _ToolbarTheme.labeledButtonHeight,
       child: MenuItemButton(
           style: ButtonStyle(
               backgroundColor: MaterialStatePropertyAll(Colors.transparent),
@@ -2298,7 +2532,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
                           BorderRadius.circular(_ToolbarTheme.iconRadius),
                       color: hover ? widget.hoverColor : widget.color,
                     ),
-                    child: icon)),
+                    child: inner)),
           )),
     ).marginSymmetric(
         horizontal: widget.hMargin ?? _ToolbarTheme.buttonHMargin,
@@ -2325,6 +2559,7 @@ class _IconSubmenuButton extends StatefulWidget {
   final MenuStyle? menuStyle;
   final FFI? ffi;
   final double? width;
+  final String? label;
 
   _IconSubmenuButton({
     Key? key,
@@ -2337,6 +2572,7 @@ class _IconSubmenuButton extends StatefulWidget {
     this.ffi,
     this.menuStyle,
     this.width,
+    this.label,
   }) : super(key: key);
 
   @override
@@ -2358,12 +2594,32 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
         SvgPicture.asset(
           widget.svg!,
           colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
+          width: widget.label == null ? _ToolbarTheme.buttonSize : _ToolbarTheme.labeledIconSize,
+          height: widget.label == null ? _ToolbarTheme.buttonSize : _ToolbarTheme.labeledIconSize,
         );
+    final inner = widget.label == null
+        ? icon
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              icon,
+              const SizedBox(height: 2),
+              Text(widget.label!,
+                  style: const TextStyle(
+                      fontSize: _ToolbarTheme.labeledFontSize,
+                      color: Colors.white,
+                      fontWeight: FontWeight.normal)),
+            ],
+          );
     final button = SizedBox(
-        width: widget.width ?? _ToolbarTheme.buttonSize,
-        height: _ToolbarTheme.buttonSize,
+        width: widget.width ??
+            (widget.label == null
+                ? _ToolbarTheme.buttonSize
+                : _ToolbarTheme.labeledButtonWidth),
+        height: widget.label == null
+            ? _ToolbarTheme.buttonSize
+            : _ToolbarTheme.labeledButtonHeight,
         child: SubmenuButton(
             menuStyle:
                 widget.menuStyle ?? _ToolbarTheme.defaultMenuStyle(context),
@@ -2381,7 +2637,7 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
                               BorderRadius.circular(_ToolbarTheme.iconRadius),
                           color: hover ? widget.hoverColor : widget.color,
                         ),
-                        child: icon))),
+                        child: inner))),
             menuChildren: widget
                 .menuChildrenGetter(this)
                 .map((e) => _buildPointerTrackWidget(e, widget.ffi))
