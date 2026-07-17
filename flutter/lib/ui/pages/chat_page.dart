@@ -43,6 +43,16 @@ class _ChatPageState extends State<ChatPage> {
     _store.send(widget.conversationId, text);
     _textController.clear();
     _scrollToBottom();
+    // 透明化：当前活跃 P2P 会话若不是该对端，消息暂存本地，待连接后实时收发
+    final convs = Get.find<ConversationState>().conversations;
+    final idx = convs.indexWhere((c) => c.id == widget.conversationId);
+    final peerId = idx >= 0 ? convs[idx].peerId : widget.conversationId;
+    if (peerId.isNotEmpty && gFFI.id != widget.conversationId) {
+      Get.snackbar('已保存到本地',
+          '点右上「发起远程协助」建立连接后，消息将实时送达对方',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
+    }
   }
 
   void _scrollToBottom() {
@@ -198,7 +208,7 @@ class _ChatPageState extends State<ChatPage> {
           const Padding(
             padding: EdgeInsets.only(top: 6, left: 4),
             child: Text(
-              '常连接：无需远程会话，消息也会实时送达',
+              '消息走点对点直连（去服务器）；点右上「发起远程协助」建立连接后实时收发，未连接时消息暂存本地',
               style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
             ),
           ),

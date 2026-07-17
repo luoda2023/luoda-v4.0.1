@@ -645,6 +645,25 @@ class _MobileChatPageState extends State<_MobileChatPage> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.folder_outlined,
+                size: 24, color: AppColors.primaryGreen),
+            onPressed: () {
+              final convs = Get.find<ConversationState>().conversations;
+              final idx =
+                  convs.indexWhere((c) => c.id == widget.conversationId);
+              final peerId =
+                  idx >= 0 ? convs[idx].peerId : widget.conversationId;
+              if (peerId.isEmpty) {
+                Get.snackbar('文件传输', '该会话暂不支持文件传输',
+                    snackPosition: SnackPosition.BOTTOM);
+                return;
+              }
+              // 走已验证的 P2P 文件传输链路（去服务器）
+              connect(Get.context!, peerId, isFileTransfer: true);
+            },
+            tooltip: '文件传输',
+          ),
+          IconButton(
             icon: const Icon(Icons.cast_connected,
                 size: 24, color: AppColors.primaryGreen),
             onPressed: () => connect(Get.context!, widget.conversationId),
