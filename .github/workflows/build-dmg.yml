@@ -51,20 +51,13 @@ jobs:
         run: |
           git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Generate FFI bridge
-        timeout-minutes: 20
+      - name: Flutter pub get (FFI bridge committed)
         run: |
-          echo "=== Installing cargo-expand ==="
-          cargo install cargo-expand --version 1.0.95 --locked 2>&1 | tail -5
-          echo "=== Installing flutter_rust_bridge_codegen ==="
-          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked 2>&1 | tail -5
-          echo "=== Running flutter pub get ==="
+          echo "=== FFI bridge already committed, skipping codegen ==="
           cd flutter && flutter pub get && cd ..
-          echo "=== Running flutter_rust_bridge_codegen ==="
-          flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h 2>&1
-          echo "=== Verifying generated file ==="
-          ls -la flutter/lib/generated_bridge.dart || echo "ERROR: generated_bridge.dart not created!"
-          head -5 flutter/lib/generated_bridge.dart || echo "ERROR: Cannot read file!" 
+          echo "=== Verifying committed generated bridge ==="
+          ls -la flutter/lib/generated_bridge.dart flutter/macos/Runner/bridge_generated.h || echo "ERROR: generated bridge files missing!"
+          head -5 flutter/lib/generated_bridge.dart || echo "ERROR: Cannot read file!"
 
       - name: Install dependencies via vcpkg
         run: |

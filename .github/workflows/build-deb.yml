@@ -62,11 +62,21 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev || true
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+        shell: bash
+        run: |
+          # lukka/run-vcpkg@v11 已在 GitHub Marketplace 下架，改为手动 clone 同版本
+          if [ ! -d "$HOME/vcpkg/.git" ]; then
+            git clone https://github.com/Microsoft/vcpkg.git "$HOME/vcpkg"
+          fi
+          cd "$HOME/vcpkg"
+          git fetch --all --tags
+          git checkout ${{ env.VCPKG_COMMIT_ID }}
+          ./bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
+          echo "$HOME/vcpkg" >> $GITHUB_PATH
 
       - name: Install vcpkg dependencies
+        timeout-minutes: 60
         run: |
           for i in 1 2 3; do
             echo "vcpkg install attempt $i/3..."
@@ -102,19 +112,12 @@ jobs:
         run: |
           git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Generate FFI bridge
-        timeout-minutes: 20
+      - name: Flutter pub get (FFI bridge committed)
         run: |
-          echo "=== Installing cargo-expand ==="
-          cargo install cargo-expand --version 1.0.95 --locked 2>&1 | tail -5
-          echo "=== Installing flutter_rust_bridge_codegen ==="
-          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked 2>&1 | tail -5
-          echo "=== Running flutter pub get ==="
+          echo "=== FFI bridge already committed, skipping codegen ==="
           cd flutter && flutter pub get && cd ..
-          echo "=== Running flutter_rust_bridge_codegen ==="
-          flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart 2>&1
-          echo "=== Verifying generated file ==="
-          ls -la flutter/lib/generated_bridge.dart || echo "ERROR: generated_bridge.dart not created!"
+          echo "=== Verifying committed generated bridge ==="
+          ls -la flutter/lib/generated_bridge.dart || echo "ERROR: generated_bridge.dart missing!"
           head -5 flutter/lib/generated_bridge.dart || echo "ERROR: Cannot read file!"
 
       - name: Build Rust binary
