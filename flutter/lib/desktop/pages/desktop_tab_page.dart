@@ -92,13 +92,16 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 客户端定制版只保留关闭按钮，不显示最小化和最大化。
-    final bool compactClient = isCustomClient;
+    // 客户端定制版：保留完整标题栏(应用名 + 最小化/最大化/关闭)，与正常主界面一致；
+    // 设置按钮与主题切换仍按 isCustomClient 隐藏(下方 tail / _ThemeToggleBtn 处理)。
+    final bool compactClient = false;
     final tabWidget = Container(
         child: Scaffold(
             backgroundColor: Theme.of(context).colorScheme.background,
             body: DesktopTab(
               controller: tabController,
+              showLogo: true,
+              showTitle: true,
               showMinimize: !compactClient,
               showMaximize: !compactClient,
               showClose: true,

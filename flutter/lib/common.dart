@@ -3773,7 +3773,7 @@ var imcomingOnlyHomeSize = Size(370, 460);
 Size getIncomingOnlyHomeSize() {
   // 客户定制版：固定窗口尺寸，清除右侧空白
   if (isCustomClient) {
-    return const Size(380, 500);
+    return const Size(380, 640);
   }
   final magicWidth = isWindows ? 11.0 : 2.0;
   final magicHeight = 10.0;

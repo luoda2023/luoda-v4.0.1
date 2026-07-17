@@ -176,6 +176,26 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                     SizedBox(height: 4),
                     // IP:端口
                     buildDirectAccessBoard(context),
+                    const SizedBox(height: 10),
+                    // 标准左栏功能: 预设密码警告
+                    if (!bind.isOutgoingOnly()) buildPresetPasswordWarning(),
+                    // 标准左栏功能: 定制版 "Powered by" 标识
+                    if (bind.isCustomClient()) loadPowered(context),
+                    // 标准左栏功能: 帮助卡(与正常主界面一致)
+                    FutureBuilder<Widget>(
+                      future: Future.value(
+                          Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
+                      builder: (_, data) {
+                        if (data.hasData) {
+                          return data.data!;
+                        } else {
+                          return const Offstage();
+                        }
+                      },
+                    ),
+                    // 标准左栏功能: 插件入口
+                    buildPluginEntry(),
+                    const SizedBox(height: 12),
                     const Spacer(),
                     // 状态条 —— 上移到红框(左侧栏)底部
                     Padding(
@@ -1122,10 +1142,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   void initState() {
     super.initState();
     if (widget.isClientOnly) {
-      // 定制版窗口尺寸固定为左侧面板宽度 + 一点 padding,不显示右侧面板
+      // 定制版窗口尺寸固定为左侧面板宽度 + 一点 padding,不显示右侧面板;
+      // 保留可缩放(标题栏含最小化/最大化按钮,需可缩放才生效)。
       Future.delayed(const Duration(milliseconds: 50), () async {
         try {
-          await windowManager.setResizable(false);
+          await windowManager.setResizable(true);
           await windowManager.setSize(getIncomingOnlyHomeSize());
         } catch (_) {}
       });
