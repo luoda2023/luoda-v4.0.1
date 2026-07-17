@@ -153,8 +153,12 @@ class _MobileMainLayoutState extends State<MobileMainLayout> {
       final idx =
           _convState.conversations.indexWhere((c) => c.id == b.id);
       if (idx >= 0) {
-        _convState.conversations[idx] = _convState.conversations[idx]
-            .copyWith(isOnline: b.online, lastMessage: b.online ? '在线' : '离线');
+        final existing = _convState.conversations[idx];
+        final newMsg = ConversationState.isStatusPlaceholder(existing.lastMessage)
+            ? (b.online ? '在线' : '离线')
+            : existing.lastMessage;
+        _convState.conversations[idx] =
+            existing.copyWith(isOnline: b.online, lastMessage: newMsg);
       } else {
         _convState.conversations.add(Conversation(
           id: b.id,

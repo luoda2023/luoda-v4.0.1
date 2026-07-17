@@ -168,15 +168,21 @@ class BindingState extends GetxController {
   }
 
   /// 把绑定 PC 合并进会话列表，使其在「消息 / 设备」中可见并显示在线状态。
+  /// 仅当该行 lastMessage 仍是「在线状态占位文字」时才刷新文字，
+  /// 避免每 30 分钟同步把用户与该设备的真实聊天预览覆盖成「在线/离线」。
   void _mergeIntoConversations() {
     if (!Get.isRegistered<ConversationState>()) return;
     final conv = Get.find<ConversationState>();
     for (final b in bindings) {
       final idx = conv.conversations.indexWhere((c) => c.id == b.id);
       if (idx >= 0) {
-        conv.conversations[idx] = conv.conversations[idx].copyWith(
+        final existing = conv.conversations[idx];
+        final newMsg = ConversationState.isStatusPlaceholder(existing.lastMessage)
+            ? (b.online ? '在线' : '离线')
+            : existing.lastMessage;
+        conv.conversations[idx] = existing.copyWith(
           isOnline: b.online,
-          lastMessage: b.online ? '在线' : '离线',
+          lastMessage: newMsg,
         );
       } else {
         conv.conversations.add(Conversation(

@@ -155,33 +155,37 @@ class ConversationState extends GetxController {
  conversations.value = list;
  }
 
- /// LUODA: 根据 hbbs 返回的在线 ID 列表,更新 conversations 的 isOnline 字段。
- /// 同时把 lastMessage 同步成 '在线' / '离线',方便会话列表看到状态。
- /// 不会触发不存在 peer 的会话(避免误改文件传输助手等系统会话)。
- void applyOnlineStates(Set<String> onlineIds) {
- var changed = false;
- final next = <Conversation>[];
- for (final c in conversations) {
- if (c.peerId.isEmpty) {
- // 系统会话/mock 项不动
- next.add(c);
- continue;
- }
- final online = onlineIds.contains(c.peerId);
- if (online != c.isOnline || c.lastMessage == '未知') {
- next.add(c.copyWith(
- isOnline: online,
- lastMessage: online ? '在线' : '离线',
- ));
- changed = true;
- } else {
- next.add(c);
- }
- }
- if (changed) {
- conversations.value = next;
- }
- }
+  /// LUODA: 根据 hbbs 返回的在线 ID 列表,更新 conversations 的 isOnline 字段。
+  /// 仅当某行 lastMessage 还是「在线状态占位文字」时才刷新该文字；
+  /// 若用户已与该设备产生真实聊天,会保留真实聊天预览,不被 '在线'/'离线' 覆盖。
+  /// 不会触发不存在 peer 的会话(避免误改文件传输助手等系统会话)。
+  void applyOnlineStates(Set<String> onlineIds) {
+    var changed = false;
+    final next = <Conversation>[];
+    for (final c in conversations) {
+      if (c.peerId.isEmpty) {
+        // 系统会话/mock 项不动
+        next.add(c);
+        continue;
+      }
+      final online = onlineIds.contains(c.peerId);
+      // 状态未变且已是真实聊天预览：保持原样，避免无谓重建
+      if (online == c.isOnline && !isStatusPlaceholder(c.lastMessage)) {
+        next.add(c);
+        continue;
+      }
+      // 状态变化，或仍为状态占位文字 -> 更新在线态；仅占位时刷新文字
+      final newMsg = isStatusPlaceholder(c.lastMessage)
+          ? (online ? '在线' : '离线')
+          : c.lastMessage;
+      final same = online == c.isOnline && newMsg == c.lastMessage;
+      next.add(c.copyWith(isOnline: online, lastMessage: newMsg));
+      if (!same) changed = true;
+    }
+    if (changed) {
+      conversations.value = next;
+    }
+  }
 
  /// 根据当前导航和过滤返回会话列表
  /// LUODA: 置顶会话始终排在前面（保持各自时间序）。
@@ -310,6 +314,21 @@ class ConversationState extends GetxController {
     if (idx >= 0) {
       conversations[idx] = conversations[idx].copyWith(pinned: !conversations[idx].pinned);
     }
+  }
+
+  /// LUODA: 判断一条 lastMessage 是否只是「在线状态占位文字」而非真实聊天内容。
+  /// 用于在线状态刷新时只覆盖占位行，避免清掉用户与该设备的真实聊天预览。
+  static const Set<String> _statusPlaceholders = {
+    '在线',
+    '离线',
+    '未知',
+    '已绑定设备',
+    '已断开',
+    '连接中...',
+  };
+  static bool isStatusPlaceholder(String? msg) {
+    if (msg == null || msg.isEmpty) return true;
+    return _statusPlaceholders.contains(msg);
   }
 
   /// 重新计算全局未读角标（避免每次遍历全部会话）
