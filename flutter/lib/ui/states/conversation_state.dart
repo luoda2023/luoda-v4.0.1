@@ -16,6 +16,9 @@ class Conversation {
  final String? avatarText;
  final String? avatarUrl;
 
+ /// LUODA: 是否置顶（会话列表优先显示）。
+ final bool pinned;
+
  /// LUODA: 设备平台（windows/macos/linux/android/ios/server/unknown），
  /// 用于在设备列表显示对应图标（与 PC 端 DeviceCard 一致）。
  final String platform;
@@ -37,12 +40,13 @@ class Conversation {
  this.unreadCount = 0,
  this.muted = false,
  this.isGroup = false,
- this.avatarText,
- this.avatarUrl,
- this.platform = '',
- this.peerId = '',
- this.isOnline = false,
- });
+    this.avatarText,
+    this.avatarUrl,
+    this.pinned = false,
+    this.platform = '',
+    this.peerId = '',
+    this.isOnline = false,
+  });
 
  Conversation copyWith({
  String? name,
@@ -52,10 +56,11 @@ class Conversation {
  bool? muted,
  bool? isGroup,
  String? avatarText,
- String? avatarUrl,
- String? platform,
- String? peerId,
- bool? isOnline,
+   String? avatarUrl,
+   bool? pinned,
+   String? platform,
+   String? peerId,
+   bool? isOnline,
  }) {
  return Conversation(
  id: id,
@@ -66,8 +71,9 @@ class Conversation {
  muted: muted ?? this.muted,
  isGroup: isGroup ?? this.isGroup,
  avatarText: avatarText ?? this.avatarText,
- avatarUrl: avatarUrl ?? this.avatarUrl,
- platform: platform ?? this.platform,
+   avatarUrl: avatarUrl ?? this.avatarUrl,
+   pinned: pinned ?? this.pinned,
+   platform: platform ?? this.platform,
  peerId: peerId ?? this.peerId,
  isOnline: isOnline ?? this.isOnline,
  );
@@ -178,21 +184,64 @@ class ConversationState extends GetxController {
  }
 
  /// 根据当前导航和过滤返回会话列表
+ /// LUODA: 置顶会话始终排在前面（保持各自时间序）。
  List<Conversation> filtered({String? keyword}) {
- var list = conversations.toList();
- if (keyword != null && keyword.isNotEmpty) {
- list = list
- .where((c) => c.name.toLowerCase().contains(keyword.toLowerCase()))
- .toList();
+   var list = conversations.toList();
+   if (keyword != null && keyword.isNotEmpty) {
+     list = list
+         .where((c) => c.name.toLowerCase().contains(keyword.toLowerCase()))
+         .toList();
+   }
+   list.sort((a, b) {
+     if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+     // 同置顶态下按最后消息时间倒序（无时间者排后）
+     final ta = a.lastTime?.millisecondsSinceEpoch ?? 0;
+     final tb = b.lastTime?.millisecondsSinceEpoch ?? 0;
+     return tb.compareTo(ta);
+   });
+   return list;
  }
- return list;
+
+ /// LUODA: 通讯录分组——按平台归类所有真实设备(peerId 非空)。
+ /// 返回顺序：server/windows/macos/linux/android/ios/unknown。
+ static const List<String> _platformOrder = [
+   'server',
+   'windows',
+   'macos',
+   'linux',
+   'android',
+   'ios',
+   'unknown',
+ ];
+ Map<String, List<Conversation>> contactsByPlatform() {
+   final map = <String, List<Conversation>>{};
+   for (final c in conversations) {
+     if (c.peerId.isEmpty) continue; // 系统/mock 项不进通讯录
+     final p = c.platform.isEmpty ? 'unknown' : c.platform;
+     (map[p] ??= []).add(c);
+   }
+   final ordered = <String, List<Conversation>>{};
+   for (final p in _platformOrder) {
+     if (map.containsKey(p)) {
+       ordered[p] = map[p]!..sort((a, b) => a.name.compareTo(b.name));
+     }
+   }
+   // 兜底任何未列出的平台
+   for (final p in map.keys) {
+     if (!ordered.containsKey(p)) {
+       ordered[p] = map[p]!..sort((a, b) => a.name.compareTo(b.name));
+     }
+   }
+   return ordered;
  }
 
   /// 标记会话已读
   void markRead(String id) {
     final idx = conversations.indexWhere((c) => c.id == id);
     if (idx >= 0 && conversations[idx].unreadCount > 0) {
+      final dec = conversations[idx].unreadCount;
       conversations[idx] = conversations[idx].copyWith(unreadCount: 0);
+      _recalcUnread(-dec);
     }
   }
 
@@ -212,11 +261,13 @@ class ConversationState extends GetxController {
     if (idx < 0) return;
     final c = conversations[idx];
     final isActive = appState.activeConversation == id;
+    final add = isActive ? 0 : 1;
     conversations[idx] = c.copyWith(
       lastMessage: text,
       lastTime: DateTime.now(),
-      unreadCount: isActive ? 0 : c.unreadCount + 1,
+      unreadCount: c.unreadCount + add,
     );
+    if (add > 0) _recalcUnread(add);
   }
 
   /// LUODA: 把已绑定的「自己其他设备」作为私有联系人加入会话列表，
@@ -243,13 +294,27 @@ class ConversationState extends GetxController {
     if (changed) conversations.value = next;
   }
 
- /// 删除会话
- void remove(String id) {
- conversations.removeWhere((c) => c.id == id);
- }
+  /// 删除会话
+  void remove(String id) {
+    final idx = conversations.indexWhere((c) => c.id == id);
+    if (idx >= 0) {
+      final dec = conversations[idx].unreadCount;
+      conversations.removeAt(idx);
+      if (dec > 0) _recalcUnread(-dec);
+    }
+  }
 
- /// 置顶会话（暂未实现）
- void pin(String id) {
- // TODO: 置顶逻辑
- }
+  /// 置顶/取消置顶会话（切换 pinned 状态，置顶项在列表中优先显示）
+  void pin(String id) {
+    final idx = conversations.indexWhere((c) => c.id == id);
+    if (idx >= 0) {
+      conversations[idx] = conversations[idx].copyWith(pinned: !conversations[idx].pinned);
+    }
+  }
+
+  /// 重新计算全局未读角标（避免每次遍历全部会话）
+  void _recalcUnread(int delta) {
+    final next = (appState.totalUnread.value + delta).clamp(0, 1 << 30);
+    appState.totalUnread.value = next;
+  }
 }

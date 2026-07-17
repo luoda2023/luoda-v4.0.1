@@ -70,6 +70,9 @@ class ConversationItem extends StatelessWidget {
   /// 是否显示在线状态点
   final bool showOnlineDot;
 
+  /// 是否置顶（显示图钉标记）
+  final bool pinned;
+
   /// 是否有未决操作（红点提示）
   final bool hasPendingAction;
 
@@ -89,6 +92,7 @@ class ConversationItem extends StatelessWidget {
     this.onLongPress,
     this.avatarSize = 44,
     this.showOnlineDot = true,
+    this.pinned = false,
     this.hasPendingAction = false,
   });
 
@@ -147,6 +151,11 @@ class ConversationItem extends StatelessWidget {
                             time!,
                             style: AppTextStyles.conversationTime,
                           ),
+                        ],
+                        if (pinned) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.push_pin,
+                              size: 13, color: AppColors.textTertiary),
                         ],
                       ],
                     ),

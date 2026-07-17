@@ -45,6 +45,9 @@ class _MainLayoutState extends State<MainLayout> {
   Timer? _onlineQueryTimer;
   Timer? _reloadPeersTimer;
 
+  /// 文件传输 Tab 当前选中的目标设备 ID
+  String _filePeerId = '';
+
   AppState get _appState => Get.find<AppState>();
   ConversationState get _convState => Get.find<ConversationState>();
 
@@ -264,34 +267,36 @@ class _MainLayoutState extends State<MainLayout> {
         return const SizedBox.shrink();
       }
       if (nav == NavSection.files) {
-        return Container(
-          width: _middleWidth,
-          color: AppColors.conversationListBg,
-          child: const Center(
-            child: Text('文件传输', style: TextStyle(color: AppColors.textTertiary)),
-          ),
-        );
+        return _buildFilesMiddle();
       }
-      return Container(
-        width: _middleWidth,
-        color: AppColors.conversationListBg,
-        child: Column(
-          children: [
-            _buildConnectEntry(),
-            const Divider(height: 1, color: AppColors.divider),
-            WeChatSearchBar(
-              hintText: '搜索设备或联系人',
-              onChanged: (v) => _appState.searchKeyword = v,
-            ),
-            Expanded(child: _buildConversationList()),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: ServerConnectionBar(),
-            ),
-          ],
-        ),
-      );
+      if (nav == NavSection.contacts) {
+        return _buildContactsMiddle();
+      }
+      return _buildChatMiddle();
     });
+  }
+
+  /// 会话 Tab 中栏：发起连接入口 + 搜索 + 会话列表
+  Widget _buildChatMiddle() {
+    return Container(
+      width: _middleWidth,
+      color: AppColors.conversationListBg,
+      child: Column(
+        children: [
+          _buildConnectEntry(),
+          const Divider(height: 1, color: AppColors.divider),
+          WeChatSearchBar(
+            hintText: '搜索设备或联系人',
+            onChanged: (v) => _appState.searchKeyword = v,
+          ),
+          Expanded(child: _buildConversationList()),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: ServerConnectionBar(),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildConnectEntry() {
@@ -373,6 +378,7 @@ class _MainLayoutState extends State<MainLayout> {
             avatarText: c.avatarText ?? 'D',
             isOnline: c.isOnline,
             showOnlineDot: true,
+            pinned: c.pinned,
             selected: c.id == activeId,
             onTap: () {
               _appState.selectConversation(c.id);
@@ -381,17 +387,21 @@ class _MainLayoutState extends State<MainLayout> {
                 _appState.selectNav(NavSection.chat);
               }
             },
+            onLongPress: () => _showConversationMenu(c),
           );
         },
       );
     });
   }
 
-  // —— 右侧主区：设置 / 聊天 / 欢迎 ——
+  // —— 右侧主区：设置 / 聊天 / 文件传输 / 欢迎 ——
   Widget _buildMainArea() {
     return Obx(() {
       if (_appState.nav == NavSection.settings) {
         return const SettingsPage();
+      }
+      if (_appState.nav == NavSection.files) {
+        return _buildFilesMain();
       }
       final activeId = _appState.activeConversation;
       if (activeId.isEmpty) {
@@ -399,6 +409,333 @@ class _MainLayoutState extends State<MainLayout> {
       }
       return ChatPage(key: ValueKey(activeId), conversationId: activeId);
     });
+  }
+
+  // ============ 通讯录视图 ============
+
+  Widget _buildContactsMiddle() {
+    return Container(
+      width: _middleWidth,
+      color: AppColors.conversationListBg,
+      child: Column(
+        children: [
+          Container(
+            height: 48,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: const Text('通讯录',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+          ),
+          const Divider(height: 1, color: AppColors.divider),
+          Expanded(child: _buildContactsList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactsList() {
+    return Obx(() {
+      final groups = _convState.contactsByPlatform();
+      if (groups.isEmpty) {
+        return const Center(
+          child: Text('暂无联系人', style: TextStyle(color: AppColors.textTertiary)),
+        );
+      }
+      final entries = <Widget>[];
+      groups.forEach((platform, list) {
+        entries.add(_buildPlatformHeader(platform, list.length));
+        for (final c in list) {
+          entries.add(_buildContactTile(c));
+        }
+      });
+      return ListView(children: entries);
+    });
+  }
+
+  Widget _buildPlatformHeader(String platform, int count) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      color: AppColors.conversationListBg,
+      child: Text(
+        '${_platformLabel(platform)}  ($count)',
+        style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildContactTile(Conversation c) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.primaryGreenLight,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(_platformIcon(c.platform),
+            color: AppColors.primaryGreen, size: 20),
+      ),
+      title: Text(c.name,
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis),
+      subtitle: Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            margin: const EdgeInsets.only(right: 5),
+            decoration: BoxDecoration(
+              color: c.isOnline ? AppColors.online : AppColors.textTertiary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          Text(c.isOnline ? '在线' : '离线',
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+        ],
+      ),
+      onTap: () {
+        _appState.selectConversation(c.id);
+        _convState.markRead(c.id);
+        _appState.selectNav(NavSection.chat);
+      },
+    );
+  }
+
+  // ============ 文件传输视图 ============
+
+  Widget _buildFilesMiddle() {
+    return Container(
+      width: _middleWidth,
+      color: AppColors.conversationListBg,
+      child: Column(
+        children: [
+          Container(
+            height: 48,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: const Text('文件传输',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+          ),
+          const Divider(height: 1, color: AppColors.divider),
+          Expanded(child: _buildFileTargetList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileTargetList() {
+    return Obx(() {
+      final list = _convState.conversations
+          .where((c) => c.peerId.isNotEmpty)
+          .toList()
+        ..sort((a, b) {
+          if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
+          return a.name.compareTo(b.name);
+        });
+      if (list.isEmpty) {
+        return const Center(
+          child: Text('暂无可用设备', style: TextStyle(color: AppColors.textTertiary)),
+        );
+      }
+      return ListView.builder(
+        itemCount: list.length,
+        itemBuilder: (context, i) {
+          final c = list[i];
+          final selected = _filePeerId == c.id;
+          return ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreenLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_platformIcon(c.platform),
+                  color: AppColors.primaryGreen, size: 20),
+            ),
+            title: Text(c.name,
+                style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            subtitle: Text(c.isOnline ? '在线' : '离线',
+                style:
+                    const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+            trailing: c.isOnline
+                ? const Icon(Icons.file_upload, color: AppColors.primaryGreen)
+                : null,
+            selected: selected,
+            selectedTileColor: AppColors.selected,
+            onTap: () => setState(() => _filePeerId = c.id),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _buildFilesMain() {
+    if (_filePeerId.isEmpty) {
+      return Container(
+        color: AppColors.contentAreaBg,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.folder_outlined, size: 64, color: AppColors.textTertiary),
+            SizedBox(height: 16),
+            Text('选择左侧设备发起文件传输',
+                style: TextStyle(fontSize: 15, color: AppColors.textPrimary)),
+            SizedBox(height: 8),
+            Text('文件经由 P2P 直连传输，不经过任何服务器',
+                style: TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+          ],
+        ),
+      );
+    }
+    Conversation? c;
+    try {
+      c = _convState.conversations.firstWhere((e) => e.id == _filePeerId);
+    } catch (_) {
+      c = null;
+    }
+    if (c == null) {
+      return Container(
+        color: AppColors.contentAreaBg,
+        alignment: Alignment.center,
+        child: const Text('设备不可用',
+            style: TextStyle(color: AppColors.textTertiary)),
+      );
+    }
+    return Container(
+      color: AppColors.contentAreaBg,
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreenLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_platformIcon(c.platform),
+                color: AppColors.primaryGreen, size: 36),
+          ),
+          const SizedBox(height: 16),
+          Text(c.name,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          Text(
+            c.isOnline ? '设备在线，可安全传输' : '设备当前离线，可能无法连接',
+            style: TextStyle(
+                fontSize: 13,
+                color: c.isOnline
+                    ? AppColors.online
+                    : AppColors.textTertiary),
+          ),
+          const SizedBox(height: 28),
+          Material(
+            color: AppColors.primaryGreen,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => connect(context, c!.id, isFileTransfer: true),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.file_upload, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('发起文件传输',
+                        style: TextStyle(color: Colors.white, fontSize: 15)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('将打开安全 P2P 传输窗口（去服务器）',
+              style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+        ],
+      ),
+    );
+  }
+
+  // ============ 会话菜单（置顶）============
+
+  void _showConversationMenu(Conversation c) {
+    Get.defaultDialog(
+      title: c.name,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(c.pinned ? Icons.push_pin : Icons.push_pin_outlined),
+            title: Text(c.pinned ? '取消置顶' : '置顶到顶部'),
+            onTap: () {
+              Get.back();
+              _convState.pin(c.id);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============ 平台图标/文案 ============
+
+  IconData _platformIcon(String platform) {
+    switch (platform) {
+      case 'windows':
+        return Icons.desktop_windows;
+      case 'macos':
+        return Icons.desktop_mac;
+      case 'linux':
+        return Icons.computer;
+      case 'android':
+        return Icons.phone_android;
+      case 'ios':
+        return Icons.phone_iphone;
+      case 'server':
+        return Icons.dns;
+      default:
+        return Icons.device_unknown;
+    }
+  }
+
+  String _platformLabel(String platform) {
+    switch (platform) {
+      case 'windows':
+        return 'Windows';
+      case 'macos':
+        return 'macOS';
+      case 'linux':
+        return 'Linux';
+      case 'android':
+        return 'Android';
+      case 'ios':
+        return 'iOS';
+      case 'server':
+        return '服务器';
+      default:
+        return '其他设备';
+    }
   }
 
   Widget _buildWelcome() {
