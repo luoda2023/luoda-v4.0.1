@@ -127,6 +127,8 @@ jobs:
         env:
           VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
           CXXFLAGS: "-include cstdint"
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          CARGO_NET_RETRY: 10
 
       - name: Build Flutter Linux
         timeout-minutes: 30

@@ -128,6 +128,8 @@ jobs:
           VCPKG_INSTALLED_ROOT: C:\\\\vcpkg\\\\installed\\\\x64-windows-static
           SODIUM_LIB_DIR: C:\\\\vcpkg\\\\installed\\\\x64-windows-static\\\\lib
           CXXFLAGS: -include cstdint
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          CARGO_NET_RETRY: 10
 
       - name: Build Flutter Windows
         timeout-minutes: 15

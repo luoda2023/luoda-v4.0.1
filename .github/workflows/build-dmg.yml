@@ -110,6 +110,8 @@ jobs:
         env:
           VCPKG_ROOT: /tmp/vcpkg
           VCPKG_INSTALLED_ROOT: ${{ github.workspace }}/vcpkg_installed
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          CARGO_NET_RETRY: 10
         run: |
           # Find vcpkg paths (triplet depends on architecture)
           VCPKG_TRIPLET=$(/tmp/vcpkg/vcpkg triplet host 2>/dev/null || echo "arm64-osx")
