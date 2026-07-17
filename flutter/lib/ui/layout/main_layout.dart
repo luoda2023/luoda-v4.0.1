@@ -27,6 +27,8 @@ import '../../desktop/widgets/bind_phone_dialog.dart';
 import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
+import 'package:window_manager/window_manager.dart';
+import '../widgets/client_only_widgets.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({Key? key}) : super(key: key);
@@ -68,6 +70,17 @@ class _MainLayoutState extends State<MainLayout> {
       }
     });
     _setupPeerPolling();
+
+    // 独立客户端 EXE:设一个适合"微信壳 + 本机信息卡"的窗口尺寸,且可缩放
+    if (isCustomClient) {
+      Future.delayed(const Duration(milliseconds: 60), () async {
+        try {
+          setResizable(true);
+          await windowManager.setSize(const Size(920, 640));
+          await windowManager.center();
+        } catch (_) {}
+      });
+    }
   }
 
   @override
@@ -163,13 +176,21 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
         children: [
-          _buildNavBar(),
-          _buildMiddleColumn(),
-          const VerticalDivider(width: 1, color: AppColors.divider),
-          Expanded(child: _buildMainArea()),
+          // 独立客户端 EXE:补自定义标题栏(应用名 + 最小/最大/关闭),常规版不显示
+          if (isCustomClient) const ClientTitleBar(),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildNavBar(),
+                _buildMiddleColumn(),
+                const VerticalDivider(width: 1, color: AppColors.divider),
+                Expanded(child: _buildMainArea()),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -396,6 +417,16 @@ class _MainLayoutState extends State<MainLayout> {
 
   // —— 右侧主区：设置 / 聊天 / 文件传输 / 欢迎 ——
   Widget _buildMainArea() {
+    // 独立客户端 EXE:主区默认展示本机信息卡(ID/密码/直连IP),与微信壳其余部分并存
+    if (isCustomClient) {
+      if (_appState.nav == NavSection.settings) {
+        return const SettingsPage();
+      }
+      if (_appState.nav == NavSection.files) {
+        return _buildFilesMain();
+      }
+      return const ClientDeviceInfoPage();
+    }
     return Obx(() {
       if (_appState.nav == NavSection.settings) {
         return const SettingsPage();
