@@ -110,116 +110,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
  }
 
  Widget buildLeftPane(BuildContext context) {
- if (widget.isClientOnly) {
- return ChangeNotifierProvider.value(
- value: gFFI.serverModel,
- // 客户定制版: 不再强压 380, 让本页占满窗口宽度, 窗口本身设为 380x500
- child: SizedBox.expand(
- child: Column(
- children: [
- Expanded(
- child: Column(
- key: _childKey,
- crossAxisAlignment: CrossAxisAlignment.center,
- children: [
- // 圆形头像 + LUODA 远程协助标题 —— 真正居中
-                    Padding(
-                      padding: const EdgeInsets.only(top: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              border: Border.all(color: MyTheme.accent, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2))
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: Image.asset(
-                                "assets/avatar.png",
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, error, stackTrace) => Icon(
-                                    Icons.computer,
-                                    size: 32,
-                                    color: MyTheme.accent),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "LDesk 远程协助",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).textTheme.titleLarge?.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // 本机ID
-                    buildIDBoard(context),
-                    SizedBox(height: 4),
-                    // 密码(定制版: 单独构建,不带刷新/编辑按钮)
-                    buildPasswordBoard(context),
-                    SizedBox(height: 4),
-                    // IP:端口
-                    buildDirectAccessBoard(context),
-                    const SizedBox(height: 10),
-                    // 标准左栏功能: 预设密码警告
-                    if (!bind.isOutgoingOnly()) buildPresetPasswordWarning(),
-                    // 标准左栏功能: 定制版 "Powered by" 标识
-                    if (bind.isCustomClient()) loadPowered(context),
-                    // 标准左栏功能: 帮助卡(与正常主界面一致)
-                    FutureBuilder<Widget>(
-                      future: Future.value(
-                          Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
-                      builder: (_, data) {
-                        if (data.hasData) {
-                          return data.data!;
-                        } else {
-                          return const Offstage();
-                        }
-                      },
-                    ),
-                    // 标准左栏功能: 插件入口
-                    buildPluginEntry(),
-                    const SizedBox(height: 12),
-                    const Spacer(),
-                    // 状态条 —— 上移到红框(左侧栏)底部
-                    Padding(
-                      padding: const EdgeInsets.only(left: 14, right: 14, bottom: 12),
-                      child: OnlineStatusWidget(
-                        onSvcStatusChanged: () {
-                          if (isInHomePage()) {
-                            Future.delayed(const Duration(milliseconds: 300),
-                                () {
-                              _updateWindowSize();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    final isIncomingOnly = bind.isIncomingOnly();
+    // 定制客户端(独立EXE)等价于标准 incoming-only 被控端, 复用同一份左栏渲染, 保证与正常UI一致
+    final isIncomingOnly = bind.isIncomingOnly() || widget.isClientOnly;
     final isOutgoingOnly = bind.isOutgoingOnly();
     final children = <Widget>[
       if (!isOutgoingOnly) buildPresetPasswordWarning(),
@@ -316,7 +208,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return ChangeNotifierProvider.value(
       value: gFFI.serverModel,
       child: Container(
-        width: isIncomingOnly ? 300.0 : 220.0,
+        // 定制客户端占满窗口宽度(父为 SizedBox.expand), 与正常左栏样式一致
+        width: widget.isClientOnly ? double.infinity : (isIncomingOnly ? 300.0 : 220.0),
         color: Theme.of(context).colorScheme.background,
         child: Stack(
           children: [
