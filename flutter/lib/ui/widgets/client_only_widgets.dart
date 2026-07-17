@@ -108,11 +108,41 @@ class _TitleBtnState extends State<_TitleBtn> {
 }
 
 /// 本机信息卡:展示本机 ID / 临时密码 / 直连 IP,供对方连接本机。
-class ClientDeviceInfoPage extends StatelessWidget {
+///
+/// 重要:serverModel 的 ID/密码/直连 IP 在 startService() 之后才由异步回调解出
+/// (main.dart 中 startService 未 await,首次渲染时可能仍是占位符/"暂不可用")。
+/// 因此本页必须监听 serverModel 的变更并重建,否则卡片会停留在占位值、永不刷新。
+class ClientDeviceInfoPage extends StatefulWidget {
   const ClientDeviceInfoPage({Key? key}) : super(key: key);
+  @override
+  State<ClientDeviceInfoPage> createState() => _ClientDeviceInfoPageState();
+}
+
+class _ClientDeviceInfoPageState extends State<ClientDeviceInfoPage> {
+  @override
+  void initState() {
+    super.initState();
+    // serverModel 是 ChangeNotifier,ID/密码到达时会 notifyListeners → 触发重建
+    gFFI.serverModel.addListener(_onModelChanged);
+    // 公网/内网直连 IP 由网络发现稍后填好,首帧可能尚空,延迟一拍再读一次
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _onModelChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    gFFI.serverModel.removeListener(_onModelChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final model = gFFI.serverModel;
     final publicIP = bind.mainGetOptionSync(key: 'public-ip');
     final lanIP = bind.mainGetOptionSync(key: 'lan-ip');
     final directPort = bind.mainGetOptionSync(key: kOptionDirectAccessPort);
@@ -123,7 +153,6 @@ class ClientDeviceInfoPage extends StatelessWidget {
       if (lanIP.isNotEmpty) lanAddr = '$lanIP:$directPort';
     }
 
-    // 服务在 runApp 前已 startService,此处直接读取本机 ID/密码/直连IP
     return Container(
       color: AppColors.contentAreaBg,
       padding: const EdgeInsets.all(28),
@@ -153,35 +182,30 @@ class ClientDeviceInfoPage extends StatelessWidget {
                 ],
               ),
               padding: const EdgeInsets.all(20),
-              child: Builder(
-                builder: (context) {
-                  final model = gFFI.serverModel;
-                  return Column(
-                    children: [
-                      _InfoRow(
-                          label: '本机 ID',
-                          value: model.serverId.text,
-                          copy: model.serverId.text),
-                      const Divider(height: 20, color: AppColors.divider),
-                      _InfoRow(
-                          label: '临时密码',
-                          value: model.serverPasswd.text,
-                          copy: model.serverPasswd.text,
-                          monospace: true),
-                      const Divider(height: 20, color: AppColors.divider),
-                      _InfoRow(
-                          label: '公网直连',
-                          value:
-                              publicAddr.isNotEmpty ? publicAddr : '暂不可用',
-                          copy: publicAddr),
-                      if (lanAddr.isNotEmpty) ...[
-                        const Divider(height: 20, color: AppColors.divider),
-                        _InfoRow(
-                            label: '内网直连', value: lanAddr, copy: lanAddr),
-                      ],
-                    ],
-                  );
-                },
+              child: Column(
+                children: [
+                  _InfoRow(
+                      label: '本机 ID',
+                      value: model.serverId.text,
+                      copy: model.serverId.text),
+                  const Divider(height: 20, color: AppColors.divider),
+                  _InfoRow(
+                      label: '临时密码',
+                      value: model.serverPasswd.text,
+                      copy: model.serverPasswd.text,
+                      monospace: true),
+                  const Divider(height: 20, color: AppColors.divider),
+                  _InfoRow(
+                      label: '公网直连',
+                      value:
+                          publicAddr.isNotEmpty ? publicAddr : '暂不可用',
+                      copy: publicAddr),
+                  if (lanAddr.isNotEmpty) ...[
+                    const Divider(height: 20, color: AppColors.divider),
+                    _InfoRow(
+                        label: '内网直连', value: lanAddr, copy: lanAddr),
+                  ],
+                ],
               ),
             ),
           ),
