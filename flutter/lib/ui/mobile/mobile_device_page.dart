@@ -346,7 +346,7 @@ class _DeviceTile extends StatelessWidget {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryGreen.withValues(alpha: 0.12),
+                                  color: AppColors.primaryGreen.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text('已绑定',

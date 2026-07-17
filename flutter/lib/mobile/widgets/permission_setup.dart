@@ -250,10 +250,10 @@ class PermissionSetupBanner extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
           decoration: BoxDecoration(
-            color: AppColors.primaryGreen.withValues(alpha: 0.12),
+            color: AppColors.primaryGreen.withOpacity(0.12),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-                color: AppColors.primaryGreen.withValues(alpha: 0.35)),
+                color: AppColors.primaryGreen.withOpacity(0.35)),
           ),
           child: Row(children: [
             const Icon(Icons.verified_user,
