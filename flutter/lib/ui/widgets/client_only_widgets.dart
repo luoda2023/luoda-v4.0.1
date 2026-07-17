@@ -109,9 +109,15 @@ class _TitleBtnState extends State<_TitleBtn> {
 
 /// 本机信息卡:展示本机 ID / 临时密码 / 直连 IP,供对方连接本机。
 ///
+/// 视觉对齐 WeChat 桌面版弹窗风格:
+/// - 卡片居中,最大宽度 420px,圆角 14px,阴影 0 6px 20px rgba(0,0,0,.10)
+/// - 标题区:36px 微信绿图标 + 17px 标题 + 13px 副标题
+/// - 信息行:13px 标签(secondary) + 14px 值(primary),纵向堆叠
+/// - 复制按钮:浅灰背景图标按钮
+///
 /// 重要:serverModel 的 ID/密码/直连 IP 在 startService() 之后才由异步回调解出
 /// (main.dart 中 startService 未 await,首次渲染时可能仍是占位符/"暂不可用")。
-/// 因此本页必须监听 serverModel 的变更并重建,否则卡片会停留在占位值、永不刷新。
+/// 因此本页监听 serverModel 的变更并重建,否则卡片会停留在占位值、永不刷新。
 class ClientDeviceInfoPage extends StatefulWidget {
   const ClientDeviceInfoPage({Key? key}) : super(key: key);
   @override
@@ -156,60 +162,89 @@ class _ClientDeviceInfoPageState extends State<ClientDeviceInfoPage> {
     return Container(
       color: AppColors.contentAreaBg,
       padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('本机信息',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
-          const SizedBox(height: 6),
-          const Text('将以下信息发给对方,对方即可连接本机',
-              style:
-                  TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          const SizedBox(height: 20),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardBg,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4)),
-                ],
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _InfoRow(
-                      label: '本机 ID',
-                      value: model.serverId.text,
-                      copy: model.serverId.text),
-                  const Divider(height: 20, color: AppColors.divider),
-                  _InfoRow(
-                      label: '临时密码',
-                      value: model.serverPasswd.text,
-                      copy: model.serverPasswd.text,
-                      monospace: true),
-                  const Divider(height: 20, color: AppColors.divider),
-                  _InfoRow(
-                      label: '公网直连',
-                      value:
-                          publicAddr.isNotEmpty ? publicAddr : '暂不可用',
-                      copy: publicAddr),
-                  if (lanAddr.isNotEmpty) ...[
-                    const Divider(height: 20, color: AppColors.divider),
-                    _InfoRow(
-                        label: '内网直连', value: lanAddr, copy: lanAddr),
-                  ],
-                ],
-              ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A000000),
+                  blurRadius: 20,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 标题区:对标 WeChat modal-hd
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreenLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.computer,
+                            color: AppColors.primaryGreen, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('本机信息',
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary)),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(22, 0, 22, 14),
+                  child: Text('将以下信息发给对方，对方即可连接本机',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                ),
+                // 内容区
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _InfoRow(
+                          label: '本机 ID',
+                          value: model.serverId.text,
+                          copy: model.serverId.text),
+                      const Divider(height: 20, color: AppColors.divider),
+                      _InfoRow(
+                          label: '临时密码',
+                          value: model.serverPasswd.text,
+                          copy: model.serverPasswd.text,
+                          monospace: true),
+                      const Divider(height: 20, color: AppColors.divider),
+                      _InfoRow(
+                          label: '公网直连',
+                          value:
+                              publicAddr.isNotEmpty ? publicAddr : '暂不可用',
+                          copy: publicAddr),
+                      if (lanAddr.isNotEmpty) ...[
+                        const Divider(height: 20, color: AppColors.divider),
+                        _InfoRow(
+                            label: '内网直连', value: lanAddr, copy: lanAddr),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -227,54 +262,50 @@ class _InfoRow extends StatelessWidget {
       this.monospace = false});
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 3,
-          height: 30,
-          margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(
-            color: AppColors.primaryGreen,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary)),
-              const SizedBox(height: 4),
-              SelectableText(value,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: monospace ? 'monospace' : null,
-                      letterSpacing: monospace ? 1.0 : 0,
-                      color: AppColors.textPrimary)),
-            ],
-          ),
-        ),
-        InkWell(
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: copy));
-            showToast(translate('Copied'));
-          },
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreenLight,
-              borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary)),
+                const SizedBox(height: 4),
+                SelectableText(value,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: monospace ? 'monospace' : null,
+                        letterSpacing: monospace ? 1.0 : 0,
+                        color: AppColors.textPrimary)),
+              ],
             ),
-            child: const Icon(Icons.copy,
-                size: 18, color: AppColors.primaryGreen),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Material(
+            color: AppColors.contentAreaBg,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: copy));
+                showToast(translate('Copied'));
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.copy,
+                    size: 18, color: AppColors.textSecondary),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
