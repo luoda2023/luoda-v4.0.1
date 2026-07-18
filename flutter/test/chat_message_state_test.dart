@@ -23,18 +23,18 @@ void main() {
 
   group('UiChatMessage — 纯模型', () {
     test('isMine 正确区分自己与对端', () {
-      expect(const UiChatMessage(sender: 'me', text: 'hi', time: _t).isMine, isTrue);
-      expect(const UiChatMessage(sender: 'peer1', text: 'hi', time: _t).isMine, isFalse);
-      expect(const UiChatMessage(sender: 'system', text: 'x', time: _t, isSystem: true).isMine, isFalse);
+      expect(UiChatMessage(sender: 'me', text: 'hi', time: _t).isMine, isTrue);
+      expect(UiChatMessage(sender: 'peer1', text: 'hi', time: _t).isMine, isFalse);
+      expect(UiChatMessage(sender: 'system', text: 'x', time: _t, isSystem: true).isMine, isFalse);
     });
 
     test('timeLabel 输出 HH:mm', () {
-      const m = UiChatMessage(sender: 'me', text: 'x', time: _t); // 09:05
+      final m = UiChatMessage(sender: 'me', text: 'x', time: _t); // 09:05
       expect(m.timeLabel, '09:05');
     });
 
     test('toJson / fromJson 往返一致', () {
-      const m = UiChatMessage(sender: 'peer9', text: '你好', time: _t, isSystem: false);
+      final m = UiChatMessage(sender: 'peer9', text: '你好', time: _t, isSystem: false);
       final j = m.toJson();
       final back = UiChatMessage.fromJson(j);
       expect(back.sender, 'peer9');
@@ -147,4 +147,4 @@ void main() {
   });
 }
 
-const _t = DateTime(2024, 1, 1, 9, 5);
+final _t = DateTime(2024, 1, 1, 9, 5);
