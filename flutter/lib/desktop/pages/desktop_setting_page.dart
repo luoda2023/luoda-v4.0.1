@@ -12,6 +12,7 @@ import 'package:luoda_flutter/consts.dart';
 import 'package:luoda_flutter/desktop/pages/desktop_home_page.dart';
 import 'package:luoda_flutter/desktop/pages/desktop_tab_page.dart';
 import 'package:luoda_flutter/desktop/widgets/remote_toolbar.dart';
+import 'package:luoda_flutter/desktop/widgets/log_viewer.dart';
 import 'package:luoda_flutter/mobile/widgets/dialog.dart';
 import 'package:luoda_flutter/models/platform_model.dart';
 import 'package:luoda_flutter/models/printer_model.dart';
@@ -2462,6 +2463,12 @@ class _AboutState extends State<_About> {
                     translate('Website'),
                     style: linkStyle,
                   ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const LogViewerPage())),
+                  child: Text('运行日志', style: linkStyle)
+                      .marginSymmetric(vertical: 4.0)),
               Container(
                 decoration: const BoxDecoration(color: Color(0xFF2A84BA)),
                 padding:

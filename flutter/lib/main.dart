@@ -57,6 +57,14 @@ Future<void> main(List<String> args) async {
   earlyAssert();
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 运行期日志：激活写入本地文件，并捕获 Flutter 框架错误落盘，便于后续排查
+  await RuntimeLogger.instance.init();
+  FlutterError.onError = (details) {
+    RuntimeLogger.instance.error(
+        'FlutterError', '${details.exceptionAsString()}\n${details.stack ?? ''}');
+    FlutterError.dumpErrorToConsole(details, forceReport: true);
+  };
+
   debugPrint("launch args: $args");
   kBootArgs = List.from(args);
 
@@ -146,6 +154,7 @@ void _registerUiControllers() {
 }
 
 void runMainApp(bool startService) async {
+  RuntimeLogger.instance.info('BOOT', 'main window');
   // register uni links
   await initEnv(kAppTypeMain);
   // trigger connection status updater
@@ -191,6 +200,7 @@ void runMainApp(bool startService) async {
 }
 
 void runMobileApp() async {
+  RuntimeLogger.instance.info('BOOT', 'mobile app');
   await initEnv(kAppTypeMain);
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
@@ -206,6 +216,7 @@ void runMultiWindow(
   Map<String, dynamic> argument,
   String appType,
 ) async {
+  RuntimeLogger.instance.info('BOOT', 'multi_window: $appType');
   await initEnv(appType);
   final title = getWindowName();
   // set prevent close to true, we handle close event manually
