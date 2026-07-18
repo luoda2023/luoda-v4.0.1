@@ -1,36 +1,5 @@
 part of 'remote_toolbar.dart';
 
-import 'dart:convert';
-import 'dart:async';
-
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:luoda_flutter/common/widgets/audio_input.dart';
-import 'package:luoda_flutter/common/widgets/dialog.dart';
-import 'package:luoda_flutter/common/widgets/toolbar.dart';
-import 'package:luoda_flutter/models/chat_model.dart';
-import 'package:luoda_flutter/models/state_model.dart';
-import 'package:luoda_flutter/consts.dart';
-import 'package:luoda_flutter/utils/multi_window_manager.dart';
-import 'package:luoda_flutter/plugin/widgets/desc_ui.dart';
-import 'package:luoda_flutter/plugin/common.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get/get.dart';
-import 'package:provider/provider.dart';
-import 'package:debounce_throttle/debounce_throttle.dart';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:window_size/window_size.dart' as window_size;
-
-import '../../common.dart';
-import '../../models/model.dart';
-import '../../models/platform_model.dart';
-import '../../common/shared_state.dart';
-import './popup_menu.dart';
-import './kb_layout_type_chooser.dart';
-import 'package:luoda_flutter/utils/scale.dart';
-import 'package:luoda_flutter/common/widgets/custom_scale_base.dart';
-
-
 class ToolbarState {
   late RxBool _pin;
 
@@ -238,4 +207,3 @@ class RemoteMenuEntry {
     );
   }
 }
-
