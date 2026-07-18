@@ -29,3 +29,24 @@ jobs:
       - name: Build bundle (full Dart compile check)
         working-directory: flutter
         run: flutter build bundle
+
+  # 真实执行单元测试 / Widget 测试（之前只编译、从不跑测试）。
+  # 仅跑可在无头 Linux + 3.24.5 下运行的子集；cm_test.dart 需要显示器，排除。
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.24.5 (matches CI pin)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      - name: Pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Run Flutter tests (3.24.5, headless)
+        working-directory: flutter
+        run: flutter test test/conversation_state_test.dart test/chat_message_state_test.dart test/peer_tab_strip_test.dart --reporter=expanded
