@@ -1,0 +1,241 @@
+part of 'remote_toolbar.dart';
+
+import 'dart:convert';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:luoda_flutter/common/widgets/audio_input.dart';
+import 'package:luoda_flutter/common/widgets/dialog.dart';
+import 'package:luoda_flutter/common/widgets/toolbar.dart';
+import 'package:luoda_flutter/models/chat_model.dart';
+import 'package:luoda_flutter/models/state_model.dart';
+import 'package:luoda_flutter/consts.dart';
+import 'package:luoda_flutter/utils/multi_window_manager.dart';
+import 'package:luoda_flutter/plugin/widgets/desc_ui.dart';
+import 'package:luoda_flutter/plugin/common.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
+import 'package:provider/provider.dart';
+import 'package:debounce_throttle/debounce_throttle.dart';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:window_size/window_size.dart' as window_size;
+
+import '../../common.dart';
+import '../../models/model.dart';
+import '../../models/platform_model.dart';
+import '../../common/shared_state.dart';
+import './popup_menu.dart';
+import './kb_layout_type_chooser.dart';
+import 'package:luoda_flutter/utils/scale.dart';
+import 'package:luoda_flutter/common/widgets/custom_scale_base.dart';
+
+
+class ToolbarState {
+  late RxBool _pin;
+
+  RxBool collapse = false.obs;
+  RxBool hide = false.obs;
+
+  // Track initialization state to prevent flickering
+  final RxBool initialized = false.obs;
+  bool _isInitializing = false;
+
+  ToolbarState() {
+    _pin = RxBool(false);
+    final s = bind.getLocalFlutterOption(k: kOptionRemoteMenubarState);
+    if (s.isEmpty) {
+      return;
+    }
+
+    try {
+      final m = jsonDecode(s);
+      if (m != null) {
+        _pin = RxBool(m['pin'] ?? false);
+      }
+    } catch (e) {
+      debugPrint('Failed to decode toolbar state ${e.toString()}');
+    }
+  }
+
+  bool get pin => _pin.value;
+
+  /// Initialize all toolbar states from session options.
+  /// This should be called once when the toolbar is first created.
+  Future<void> init(SessionID sessionId) async {
+    if (initialized.value || _isInitializing) return;
+    _isInitializing = true;
+
+    try {
+      // Load both states in parallel for better performance
+      final results = await Future.wait<bool?>([
+        bind.sessionGetToggleOption(
+            sessionId: sessionId, arg: kOptionCollapseToolbar),
+        bind.sessionGetToggleOption(
+            sessionId: sessionId, arg: kOptionHideToolbar),
+      ]);
+
+      collapse.value = results[0] ?? false;
+      hide.value = results[1] ?? false;
+    } finally {
+      _isInitializing = false;
+      initialized.value = true;
+    }
+  }
+
+  switchCollapse(SessionID sessionId) async {
+    bind.sessionToggleOption(
+        sessionId: sessionId, value: kOptionCollapseToolbar);
+    collapse.value = !collapse.value;
+  }
+
+  // Switch hide state for entire toolbar visibility
+  switchHide(SessionID sessionId) async {
+    bind.sessionToggleOption(sessionId: sessionId, value: kOptionHideToolbar);
+    hide.value = !hide.value;
+  }
+
+  switchPin() async {
+    _pin.value = !_pin.value;
+    // Save everytime changed, as this func will not be called frequently
+    await _savePin();
+  }
+
+  setPin(bool v) async {
+    if (_pin.value != v) {
+      _pin.value = v;
+      // Save everytime changed, as this func will not be called frequently
+      await _savePin();
+    }
+  }
+
+  _savePin() async {
+    bind.setLocalFlutterOption(
+        k: kOptionRemoteMenubarState, v: jsonEncode({'pin': _pin.value}));
+  }
+}
+
+class _ToolbarTheme {
+  static const Color blueColor = MyTheme.button;
+  static const Color hoverBlueColor = MyTheme.accent;
+  static Color inactiveColor = Colors.grey[800]!;
+  static Color hoverInactiveColor = Colors.grey[850]!;
+
+  static const Color redColor = Colors.redAccent;
+  static const Color hoverRedColor = Colors.red;
+  // kMinInteractiveDimension
+  static const double height = 20.0;
+  static const double dividerHeight = 12.0;
+
+  static const double buttonSize = 32;
+  static const double buttonHMargin = 2;
+  static const double buttonVMargin = 6;
+  static const double iconRadius = 8;
+  static const double elevation = 3;
+
+  // Labeled (icon + text) button layout for the new remote toolbar.
+  static const double labeledButtonWidth = 58;
+  static const double labeledButtonHeight = 50;
+  static const double labeledIconSize = 20;
+  static const double labeledFontSize = 11;
+  static const Color barBackground = Color(0xFF2B2F33);
+  static const Color barForeground = Colors.white;
+  // Transparent until hover, matching the reference remote window style.
+  static const Color labelButtonColor = Colors.transparent;
+  static const Color labelButtonHover = Color(0x24FFFFFF);
+
+  static double dividerSpaceToAction = isWindows ? 8 : 14;
+
+  static double menuBorderRadius = isWindows ? 5.0 : 7.0;
+  static EdgeInsets menuPadding = isWindows
+      ? EdgeInsets.fromLTRB(4, 12, 4, 12)
+      : EdgeInsets.fromLTRB(6, 14, 6, 14);
+  static const double menuButtonBorderRadius = 3.0;
+
+  static Color borderColor(BuildContext context) =>
+      MyTheme.color(context).border3 ?? MyTheme.border;
+
+  static Color? dividerColor(BuildContext context) =>
+      MyTheme.color(context).divider;
+
+  static MenuStyle defaultMenuStyle(BuildContext context) => MenuStyle(
+        side: MaterialStateProperty.all(BorderSide(
+          width: 1,
+          color: borderColor(context),
+        )),
+        shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(_ToolbarTheme.menuBorderRadius))),
+        padding: MaterialStateProperty.all(_ToolbarTheme.menuPadding),
+      );
+  static final defaultMenuButtonStyle = ButtonStyle(
+    backgroundColor: MaterialStatePropertyAll(Colors.transparent),
+    padding: MaterialStatePropertyAll(EdgeInsets.zero),
+    overlayColor: MaterialStatePropertyAll(Colors.transparent),
+  );
+
+  static Widget borderWrapper(
+      BuildContext context, Widget child, BorderRadius borderRadius) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: borderColor(context),
+          width: 1,
+        ),
+        borderRadius: borderRadius,
+      ),
+      child: child,
+    );
+  }
+}
+
+typedef DismissFunc = void Function();
+
+class RemoteMenuEntry {
+  static MenuEntryButton<String> insertLock(
+    SessionID sessionId,
+    EdgeInsets? padding, {
+    DismissFunc? dismissFunc,
+    DismissCallback? dismissCallback,
+  }) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Text(
+        translate('Insert Lock'),
+        style: style,
+      ),
+      proc: () {
+        bind.sessionLockScreen(sessionId: sessionId);
+        if (dismissFunc != null) {
+          dismissFunc();
+        }
+      },
+      padding: padding,
+      dismissOnClicked: true,
+      dismissCallback: dismissCallback,
+    );
+  }
+
+  static insertCtrlAltDel(
+    SessionID sessionId,
+    EdgeInsets? padding, {
+    DismissFunc? dismissFunc,
+    DismissCallback? dismissCallback,
+  }) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Text(
+        translate("Insert Ctrl + Alt + Del"),
+        style: style,
+      ),
+      proc: () {
+        bind.sessionCtrlAltDel(sessionId: sessionId);
+        if (dismissFunc != null) {
+          dismissFunc();
+        }
+      },
+      padding: padding,
+      dismissOnClicked: true,
+      dismissCallback: dismissCallback,
+    );
+  }
+}
+
