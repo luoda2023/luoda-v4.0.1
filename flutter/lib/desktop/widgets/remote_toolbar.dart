@@ -2414,7 +2414,23 @@ class _ScreenshotButton extends StatelessWidget {
       tooltip: 'Take Screenshot',
       onPressed: () {
         if (isDesktop && !isWeb) {
-          bind.sessionTakeScreenshot(sessionId: ffi.sessionId);
+          final pi = ffi.ffiModel.pi;
+          if (pi.currentDisplay == kAllDisplayValue) {
+            msgBox(
+                ffi.sessionId,
+                'custom-nook-nocancel-hasclose-info',
+                'Take screenshot',
+                'screenshot-merged-screen-not-supported-tip',
+                '',
+                ffi.dialogManager);
+          } else {
+            bind.sessionTakeScreenshot(
+                sessionId: ffi.sessionId, display: pi.currentDisplay);
+            ffi.ffiModel.timerScreenshot =
+                Timer(const Duration(seconds: 30), () {
+              ffi.ffiModel.timerScreenshot = null;
+            });
+          }
         }
       },
       color: _ToolbarTheme.labelButtonColor,
