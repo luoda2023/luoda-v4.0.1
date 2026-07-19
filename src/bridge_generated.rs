@@ -3829,6 +3829,48 @@ fn wire_cm_send_chat_impl(
         },
     )
 }
+
+fn wire_start_chat_connection_impl(port_: MessagePort, peer_id: impl Wire2Api<String> + UnwindSafe) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, i32>(
+        WrapInfo {
+            debug_name: "start_chat_connection",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_peer_id = peer_id.wire2api();
+            move |task_callback| Ok(start_chat_connection(api_peer_id))
+        },
+    )
+}
+
+fn wire_stop_chat_connection_impl(port_: MessagePort, peer_id: impl Wire2Api<String> + UnwindSafe) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "stop_chat_connection",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_peer_id = peer_id.wire2api();
+            move |task_callback| Ok(stop_chat_connection(api_peer_id))
+        },
+    )
+}
+
+fn wire_is_chat_connected_impl(port_: MessagePort, peer_id: impl Wire2Api<String> + UnwindSafe) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
+        WrapInfo {
+            debug_name: "is_chat_connected",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_peer_id = peer_id.wire2api();
+            move |task_callback| Ok(is_chat_connected(api_peer_id))
+        },
+    )
+}
 fn wire_cm_login_res_impl(
     port_: MessagePort,
     conn_id: impl Wire2Api<i32> + UnwindSafe,

@@ -4236,7 +4236,7 @@ void _syncChatToWeChat(String conversationId, String text) {
   try {
     if (Get.isRegistered<ChatMessageState>()) {
       final cs = Get.find<ChatMessageState>();
-      cs.setTransport((id, txt) => _deliverChatViaSession(id, txt));
+      // transport 已由 ChatMessageState.onInit 初始化（含常连接路由），此处仅写入入站消息。
       cs.receive(conversationId, 'peer', text);
     }
   } catch (_) {
@@ -4245,7 +4245,9 @@ void _syncChatToWeChat(String conversationId, String text) {
 }
 
 /// 真实发送：仅当当前活跃 P2P 会话的对端正是该会话对象时才经 sessionSendChat 发出。
-Future<void> _deliverChatViaSession(String conversationId, String text) async {
+/// 注：壳层聊天发送已统一由 ChatMessageState._initTransport 接管（含常连接路由），
+/// 此函数保留用于会话窗口内直接发送场景的参考，不在壳层链路中被调用。
+Future<void> deliverChatViaSession(String conversationId, String text) async {
   try {
     if (gFFI.id == conversationId && gFFI.sessionId != null) {
       await bind.sessionSendChat(sessionId: gFFI.sessionId, text: text);

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../states/app_state.dart';
+import '../states/conversation_state.dart';
 
 class SettingsPage extends StatefulWidget {
  const SettingsPage({Key? key}) : super(key: key);
@@ -15,11 +16,12 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
- final AppState _appState = Get.find<AppState>();
- String _language = 'zh_CN';
- bool _autoStart = true;
- bool _notifications = true;
- String _quality = 'high';
+  final AppState _appState = Get.find<AppState>();
+  final ConversationState _convState = Get.find<ConversationState>();
+  String _language = 'zh_CN';
+  bool _autoStart = true;
+  bool _notifications = true;
+  String _quality = 'high';
 
  @override
  Widget build(BuildContext context) {
@@ -93,9 +95,61 @@ class _SettingsPageState extends State<SettingsPage> {
  ]),
  ),
 
- const SizedBox(height: 16),
- // 关于
- _sectionTitle('关于'),
+        const SizedBox(height: 16),
+        // 常连接（LUODA 优化加强）
+        _sectionTitle('常连接'),
+        Card(
+          child: Column(
+            children: [
+              Obx(() => ListTile(
+                leading: const Icon(Icons.wifi_tethering,
+                    color: AppColors.primaryGreen),
+                title: const Text('允许随时接收消息'),
+                subtitle: const Text('开启后，授权白名单的联系人可随时向你发消息'),
+                trailing: Switch(
+                  value: _convState.allowAlwaysReceive.value,
+                  onChanged: (v) => _convState.setAllowAlwaysReceive(v),
+                ),
+              )),
+              const Divider(height: 1),
+              Obx(() {
+                final items = _convState.conversations
+                    .where((c) => c.peerId.isNotEmpty)
+                    .toList();
+                if (items.isEmpty) {
+                  return const ListTile(
+                    title: Text('暂无联系人可授权',
+                        style: TextStyle(color: Colors.grey)),
+                  );
+                }
+                return Column(
+                  children: items.map((c) {
+                    final on = _convState.whitelist.contains(c.peerId);
+                    return ListTile(
+                      leading: Icon(
+                        Icons.circle,
+                        size: 12,
+                        color: Color(c.permission.colorValue),
+                      ),
+                      title: Text(c.name),
+                      subtitle: Text(c.permission.label),
+                      trailing: Switch(
+                        value: on,
+                        onChanged: _convState.allowAlwaysReceive.value
+                            ? (_) => _convState.toggleWhitelist(c.peerId)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                );
+              }),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+        // 关于
+        _sectionTitle('关于'),
  Card(
  child: Column(children: [
  ListTile(

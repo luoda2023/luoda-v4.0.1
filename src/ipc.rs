@@ -238,6 +238,9 @@ pub enum Data {
         recording: bool,
         block_input: bool,
         from_switch: bool,
+        /// LUODA: when true the connection is a lightweight "chat-only" background
+        /// connection (no remote-desktop/video/input window should be opened).
+        is_chat_only: bool,
     },
     ChatMessage {
         text: String,

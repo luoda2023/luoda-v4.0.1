@@ -40,7 +40,7 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
     sync::{
-        atomic::{AtomicI64, Ordering},
+        atomic::{AtomicI64, AtomicI32, Ordering},
         RwLock,
     },
 };
@@ -144,6 +144,8 @@ pub struct Client {
     pub recording: bool,
     pub block_input: bool,
     pub from_switch: bool,
+    /// LUODA: lightweight "chat-only" background connection (no remote-desktop window).
+    pub is_chat_only: bool,
     pub in_voice_call: bool,
     pub incoming_voice_call: bool,
     #[serde(skip)]
@@ -170,6 +172,33 @@ struct IpcTaskRunner<T: InvokeUiCM> {
 
 lazy_static::lazy_static! {
     static ref CLIENTS: RwLock<HashMap<i32, Client>> = Default::default();
+}
+
+/// LUODA: registry of background "chat-only" connections, keyed by peer id -> cm conn id.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+lazy_static::lazy_static! {
+    static ref CHAT_CONN: RwLock<HashMap<String, i32>> = Default::default();
+    /// Last reconnect attempt timestamp (ms) per peer, used to throttle reconnect storms.
+    static ref CHAT_CONN_LAST_TRY: RwLock<HashMap<String, i64>> = Default::default();
+}
+
+/// LUODA: monotonically increasing synthetic conn id range for chat-only controlling connections.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+static CHAT_CONN_ID: AtomicI32 = AtomicI32::new(2_000_000);
+
+/// LUODA: master switch "允许随时接收消息" (allow receiving messages anytime).
+pub fn is_chat_always_enabled() -> bool {
+    hbb_common::config::LocalConfig::get_option("allow_always_receive_msg") == "Y"
+}
+
+/// LUODA: whether `peer_id` is in the local chat whitelist.
+pub fn is_in_chat_whitelist(peer_id: &str) -> bool {
+    let list = hbb_common::config::LocalConfig::get_option("chat_whitelist");
+    if list.is_empty() {
+        return false;
+    }
+    list.split(|c: char| c == ',' || c == ';' || c == ' ' || c == '\n' || c == '\r' || c == '\t')
+        .any(|p| p.trim() == peer_id)
 }
 
 static CLICK_TIME: AtomicI64 = AtomicI64::new(0);
@@ -231,6 +260,7 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
         recording: bool,
         block_input: bool,
         from_switch: bool,
+        is_chat_only: bool,
         #[cfg(not(any(target_os = "ios")))] tx: mpsc::UnboundedSender<Data>,
     ) {
         let client = Client {
@@ -252,6 +282,7 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             recording,
             block_input,
             from_switch,
+            is_chat_only,
             #[cfg(not(any(target_os = "ios")))]
             tx,
             in_voice_call: false,
@@ -416,6 +447,134 @@ pub fn get_clients_state() -> String {
     serde_json::to_string(&res).unwrap_or("".into())
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LUODA: "chat-only" always-connected background connections.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+lazy_static::lazy_static! {
+    /// Session handle per peer, used to actually tear the background connection down.
+    static ref CHAT_CONN_SESSION: RwLock<HashMap<String, crate::flutter::FlutterSession>> =
+        Default::default();
+}
+
+/// LUODA: register a controlling-side chat-only client so `cm_send_chat(conn_id)` can route
+/// chat to the peer. The `session` is the underlying Flutter `Session` whose `send_chat`
+/// actually delivers the message to the peer. Returns the synthetic cm conn id.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn register_chat_client(peer_id: String, session: crate::flutter::FlutterSession) -> i32 {
+    let id = CHAT_CONN_ID.fetch_add(1, Ordering::SeqCst);
+    let (tx, mut rx) = mpsc::unbounded_channel::<Data>();
+    let sess = session.clone();
+    hbb_common::tokio::spawn(async move {
+        while let Some(data) = rx.recv().await {
+            if let Data::ChatMessage { text } = data {
+                sess.send_chat(text);
+            }
+        }
+    });
+    let client = Client {
+        id,
+        authorized: true,
+        disconnected: false,
+        is_file_transfer: false,
+        is_view_camera: false,
+        is_terminal: false,
+        port_forward: "".to_owned(),
+        name: "".to_owned(),
+        avatar: "".to_owned(),
+        peer_id: peer_id.clone(),
+        keyboard: false,
+        clipboard: false,
+        audio: false,
+        file: false,
+        restart: false,
+        recording: false,
+        block_input: false,
+        from_switch: false,
+        is_chat_only: true,
+        #[cfg(not(any(target_os = "ios")))]
+        tx,
+        in_voice_call: false,
+        incoming_voice_call: false,
+    };
+    CLIENTS.write().unwrap().insert(id, client);
+    CHAT_CONN.write().unwrap().insert(peer_id.clone(), id);
+    CHAT_CONN_SESSION.write().unwrap().insert(peer_id, session);
+    id
+}
+
+/// LUODA: start a background "chat-only" connection to `peer_id`.
+/// Returns the cm conn id (use with `cm_send_chat`) or 0 if not started.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn chat_conn_start(peer_id: String) -> i32 {
+    if !is_chat_always_enabled() || !is_in_chat_whitelist(&peer_id) {
+        return 0;
+    }
+    if let Some(id) = CHAT_CONN.read().unwrap().get(&peer_id) {
+        return *id;
+    }
+    crate::flutter::session_add_chat(peer_id)
+}
+
+/// LUODA: stop and tear down the background "chat-only" connection for `peer_id`.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn chat_conn_stop(peer_id: String) {
+    if let Some(session) = CHAT_CONN_SESSION.write().unwrap().remove(&peer_id) {
+        session.close();
+    }
+    if let Some(id) = CHAT_CONN.write().unwrap().remove(&peer_id) {
+        CLIENTS.write().unwrap().remove(&id);
+    }
+}
+
+/// LUODA: whether a background "chat-only" connection currently exists for `peer_id`.
+/// Covers both directions: a locally-initiated connection (in CHAT_CONN) and a
+/// peer-initiated chat-only connection (registered as a `Client` with `is_chat_only`).
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn chat_conn_is_connected(peer_id: String) -> bool {
+    if CHAT_CONN.read().unwrap().contains_key(&peer_id) {
+        return true;
+    }
+    CLIENTS
+        .read()
+        .unwrap()
+        .values()
+        .any(|c| c.is_chat_only && c.peer_id == peer_id)
+}
+
+/// LUODA: reconcile background chat connections with the latest online/offline peer states.
+/// For each whitelisted online peer without a connection, start one (throttled). For each
+/// offline peer that has one, tear it down.
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn chat_conn_reconcile(onlines: &[String], offlines: &[String]) {
+    let now = hbb_common::get_time();
+    for p in onlines {
+        if !is_chat_always_enabled() || !is_in_chat_whitelist(p) {
+            continue;
+        }
+        let last = CHAT_CONN_LAST_TRY
+            .read()
+            .unwrap()
+            .get(p)
+            .cloned()
+            .unwrap_or(0);
+        if now - last < 30_000 {
+            continue; // throttle reconnect storms (30s)
+        }
+        if CHAT_CONN.read().unwrap().contains_key(p) {
+            continue;
+        }
+        CHAT_CONN_LAST_TRY.write().unwrap().insert(p.clone(), now);
+        chat_conn_start(p.clone());
+    }
+    for p in offlines {
+        if CHAT_CONN.read().unwrap().contains_key(p) {
+            CHAT_CONN_LAST_TRY.write().unwrap().remove(p);
+            chat_conn_stop(p.clone());
+        }
+    }
+}
+
 #[inline]
 pub fn get_clients_length() -> usize {
     let clients = CLIENTS.read().unwrap();
@@ -503,9 +662,15 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
                         }
                         Ok(Some(data)) => {
                             match data {
-                                Data::Login{id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, file_transfer_enabled: _file_transfer_enabled, restart, recording, block_input, from_switch} => {
+                                Data::Login{id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, file_transfer_enabled: _file_transfer_enabled, restart, recording, block_input, from_switch, is_chat_only} => {
                                     log::debug!("conn_id: {}", id);
-                                    self.cm.add_connection(id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, restart, recording, block_input, from_switch, self.tx.clone());
+                                    self.cm.add_connection(id, is_file_transfer, is_view_camera, is_terminal, port_forward, peer_id, name, avatar, authorized, keyboard, clipboard, audio, file, restart, recording, block_input, from_switch, is_chat_only, self.tx.clone());
+                                    // LUODA: a chat-only connection from a whitelisted peer is auto-authorized
+                                    // so that chat delivery works without a manual accept prompt / remote-desktop window.
+                                    #[cfg(not(any(target_os = "ios")))]
+                                    if is_chat_only && authorized == false && is_in_chat_whitelist(&peer_id) {
+                                        authorize(id);
+                                    }
                                     self.conn_id = id;
                                     #[cfg(target_os = "windows")]
                                     {
@@ -857,6 +1022,7 @@ pub async fn start_listen<T: InvokeUiCM>(
                     recording,
                     block_input,
                     from_switch,
+                    false,
                     tx.clone(),
                 );
             }

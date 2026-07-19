@@ -2,7 +2,44 @@
 // 会话状态管理：会话列表/未读数/最后消息
 
 import 'package:get/get.dart';
+import 'package:luoda_flutter/models/platform_model.dart';
 import 'app_state.dart';
+import 'package:luoda_flutter/ui/states/chat_message_state.dart';
+
+/// LUODA: 消息权限状态（微信壳层「常连接」三色指示）。
+/// - always   🟢 常连接：已建立后台常连接，可随时收发消息
+/// - canSend  🔵 可发消息：对方在线但未建立常连接，需先建立连接/会话才能收发
+/// - rejected 🔴 已拒接：对方关闭了「允许随时接收消息」或本端已拉黑
+enum MessagePermission {
+  always,
+  canSend,
+  rejected,
+}
+
+extension MessagePermissionX on MessagePermission {
+  String get label {
+    switch (this) {
+      case MessagePermission.always:
+        return '常连接';
+      case MessagePermission.canSend:
+        return '可发消息';
+      case MessagePermission.rejected:
+        return '已拒接';
+    }
+  }
+
+  /// UI 显示颜色（与微信三色一致：绿/蓝/红）
+  int get colorValue {
+    switch (this) {
+      case MessagePermission.always:
+        return 0xFF07C160; // 绿
+      case MessagePermission.canSend:
+        return 0xFF10AEFF; // 蓝
+      case MessagePermission.rejected:
+        return 0xFFFA5151; // 红
+    }
+  }
+}
 
 /// 会话数据模型
 class Conversation {
@@ -32,6 +69,9 @@ class Conversation {
  /// 只在 `peerId` 非空时才有意义。
  final bool isOnline;
 
+ /// LUODA: 消息权限状态（🟢常连接 / 🔵可发 / 🔴拒接）。
+ final MessagePermission permission;
+
  const Conversation({
  required this.id,
  required this.name,
@@ -46,6 +86,7 @@ class Conversation {
     this.platform = '',
     this.peerId = '',
     this.isOnline = false,
+    this.permission = MessagePermission.canSend,
   });
 
  Conversation copyWith({
@@ -61,6 +102,7 @@ class Conversation {
    String? platform,
    String? peerId,
    bool? isOnline,
+   MessagePermission? permission,
  }) {
  return Conversation(
  id: id,
@@ -74,8 +116,9 @@ class Conversation {
    avatarUrl: avatarUrl ?? this.avatarUrl,
    pinned: pinned ?? this.pinned,
    platform: platform ?? this.platform,
- peerId: peerId ?? this.peerId,
- isOnline: isOnline ?? this.isOnline,
+   peerId: peerId ?? this.peerId,
+   isOnline: isOnline ?? this.isOnline,
+   permission: permission ?? this.permission,
  );
  }
 }
@@ -88,10 +131,124 @@ class ConversationState extends GetxController {
  /// 当前选中的会话ID
  String get activeId => appState.activeConversation;
 
+ /// LUODA: 「允许随时接收消息」主开关（常连接总开关）。
+ final RxBool allowAlwaysReceive = false.obs;
+
+ /// LUODA: 常连接白名单（已授权随时收发消息的 peerId 集合）。
+ final RxSet<String> whitelist = <String>{}.obs;
+
  ConversationState() {
+ _loadSettings();
  // 加载示例数据（无真实 peer 时兜底显示，方便首次安装看到 UI）
  _loadMockData();
+ // LUODA: 若已持久化白名单/总开关，进入常连接同步（ChatMessageState 未就绪时自动跳过）。
+ syncChatConnections();
  }
+
+  /// LUODA: 从本地持久化加载主开关与白名单。
+  /// 注意：key 必须与 Rust 侧 `is_chat_always_enabled()` / `is_in_chat_whitelist()`
+  /// 读取的 `allow_always_receive_msg` / `chat_whitelist` 完全一致，否则两端设置不同步。
+  void _loadSettings() {
+    try {
+      allowAlwaysReceive.value =
+          bind.mainGetLocalOption(key: 'allow_always_receive_msg') == 'Y';
+      final raw = bind.mainGetLocalOption(key: 'chat_whitelist');
+      if (raw.isNotEmpty) {
+        whitelist.value = raw
+            .split(RegExp(r'[,;\s]+'))
+            .where((e) => e.isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {}
+  }
+
+  /// LUODA: 切换主开关并持久化，然后同步后台常连接。
+  void setAllowAlwaysReceive(bool v) {
+    allowAlwaysReceive.value = v;
+    try {
+      bind.mainSetLocalOption(
+          key: 'allow_always_receive_msg', value: v ? 'Y' : 'N');
+    } catch (_) {}
+    refreshPermissions();
+    syncChatConnections();
+  }
+
+  /// LUODA: 把 peerId 加入/移出常连接白名单并持久化，然后同步后台常连接。
+  void toggleWhitelist(String peerId) {
+    final next = Set<String>.from(whitelist);
+    if (next.contains(peerId)) {
+      next.remove(peerId);
+    } else {
+      next.add(peerId);
+    }
+    whitelist.value = next;
+    try {
+      bind.mainSetLocalOption(key: 'chat_whitelist', value: next.join(','));
+    } catch (_) {}
+    refreshPermissions();
+    syncChatConnections();
+  }
+
+  /// LUODA: 依据主开关/白名单/在线态，把需要常连接的联系人同步到 Rust 后台连接管理器。
+  /// - 在线 + 已授权(白名单) + 总开关开 → startChatConnection 获取后台 connId，
+  ///   交给 ChatMessageState 用于 cmSendChat 路由（无需活跃远程会话即可收发）。
+  /// - 否则（关闭/未授权/离线）→ 停止并清理该联系人的常连接。
+  Future<void> syncChatConnections() async {
+    if (!Get.isRegistered<ChatMessageState>()) return;
+    final chat = Get.find<ChatMessageState>();
+    final enabled = allowAlwaysReceive.value;
+    final wl = whitelist.toSet();
+    for (final peerId in wl) {
+      if (peerId.isEmpty) continue;
+      if (!enabled) {
+        try {
+          await bind.stopChatConnection(peerId: peerId);
+        } catch (_) {}
+        chat.clearAlwaysConnection(peerId);
+        continue;
+      }
+      final isOnline =
+          conversations.any((c) => c.peerId == peerId && c.isOnline);
+      if (!isOnline) {
+        try {
+          await bind.stopChatConnection(peerId: peerId);
+        } catch (_) {}
+        chat.clearAlwaysConnection(peerId);
+        continue;
+      }
+      try {
+        final connId = await bind.startChatConnection(peerId: peerId);
+        if (connId > 0) {
+          chat.setAlwaysConnection(peerId, connId);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// LUODA: 根据主开关/白名单/在线态计算消息权限三色状态。
+  MessagePermission _calcPermission(Conversation c, bool online) {
+    if (c.peerId.isEmpty) return c.permission; // 系统/mock 项保持
+    if (!allowAlwaysReceive.value) return MessagePermission.canSend;
+    if (!whitelist.contains(c.peerId)) return MessagePermission.canSend;
+    if (!online) return MessagePermission.canSend;
+    return MessagePermission.always;
+  }
+
+  /// LUODA: 主开关/白名单变化后，仅重算消息权限三色状态（不改变在线态/预览文字）。
+  void refreshPermissions() {
+    var changed = false;
+    final next = <Conversation>[];
+    for (final c in conversations) {
+      final p = _calcPermission(c, c.isOnline);
+      if (p != c.permission) {
+        next.add(c.copyWith(permission: p));
+        changed = true;
+      } else {
+        next.add(c);
+      }
+    }
+    if (changed) conversations.value = next;
+  }
 
  void _loadMockData() {
  conversations.value = [
@@ -169,8 +326,10 @@ class ConversationState extends GetxController {
         continue;
       }
       final online = onlineIds.contains(c.peerId);
-      // 状态未变且已是真实聊天预览：保持原样，避免无谓重建
-      if (online == c.isOnline && !isStatusPlaceholder(c.lastMessage)) {
+      // 状态未变、预览未变、权限也未变：保持原样，避免无谓重建
+      if (online == c.isOnline &&
+          !isStatusPlaceholder(c.lastMessage) &&
+          _calcPermission(c, online) == c.permission) {
         next.add(c);
         continue;
       }
@@ -179,12 +338,16 @@ class ConversationState extends GetxController {
           ? (online ? '在线' : '离线')
           : c.lastMessage;
       final same = online == c.isOnline && newMsg == c.lastMessage;
-      next.add(c.copyWith(isOnline: online, lastMessage: newMsg));
-      if (!same) changed = true;
+      final permission = _calcPermission(c, online);
+      next.add(c.copyWith(
+          isOnline: online, lastMessage: newMsg, permission: permission));
+      if (!same || permission != c.permission) changed = true;
     }
     if (changed) {
       conversations.value = next;
     }
+    // LUODA: 在线态变化后重新同步常连接（覆盖断线重连场景）。
+    syncChatConnections();
   }
 
  /// 根据当前导航和过滤返回会话列表

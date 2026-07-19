@@ -414,7 +414,8 @@ class _ConversationTile extends StatelessWidget {
           children: [
             _RoundSquareAvatar(
               text: c.avatarText ?? 'D',
-              online: c.isOnline,
+              online: c.peerId.isNotEmpty,
+              dotColor: c.peerId.isEmpty ? null : Color(c.permission.colorValue),
               unread: c.unreadCount,
             ),
             const SizedBox(width: 14),
@@ -476,9 +477,10 @@ class _RoundSquareAvatar extends StatelessWidget {
   final String text;
   final bool online;
   final int unread;
+  final Color? dotColor;
 
   const _RoundSquareAvatar(
-      {required this.text, this.online = false, this.unread = 0});
+      {required this.text, this.online = false, this.unread = 0, this.dotColor});
 
   static const List<Color> _palette = [
     AppColors.primaryGreen,
@@ -524,7 +526,7 @@ class _RoundSquareAvatar extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: AppColors.online,
+                color: dotColor ?? AppColors.online,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: AppColors.conversationListBg,

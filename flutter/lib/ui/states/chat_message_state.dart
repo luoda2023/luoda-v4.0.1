@@ -14,6 +14,7 @@
 import 'dart:convert';
 
 import 'package:get/get.dart';
+import 'package:luoda_flutter/common.dart';
 import 'package:luoda_flutter/models/platform_model.dart';
 
 /// 单条聊天消息（UI 层模型）
@@ -81,6 +82,51 @@ class ChatMessageState extends GetxController {
 
   void setOnMessage(void Function(String id, String text, bool mine)? fn) =>
       _onMessage = fn;
+
+  /// LUODA: 常连接映射 peerId -> 后台常驻连接的 connId。
+  /// 非空时该联系人的聊天走 cmSendChat（无需活跃远程会话）。
+  final Map<String, int> _alwaysConnIds = {};
+
+  /// LUODA: 注册某联系人的常连接 connId（后台保活成功后调用）。
+  void setAlwaysConnection(String peerId, int connId) {
+    _alwaysConnIds[peerId] = connId;
+  }
+
+  /// LUODA: 清除某联系人的常连接（断开/取消授权时调用）。
+  void clearAlwaysConnection(String peerId) {
+    _alwaysConnIds.remove(peerId);
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    _initTransport();
+  }
+
+  /// LUODA: 初始化真实发送通道（Gap A 修复：从一开始即就绪，不再等收到消息）。
+  /// 路由优先级：常连接 connId > 活跃会话 sessionSendChat。
+  void _initTransport() {
+    setTransport((conversationId, text) async {
+      // 1. 常连接优先：若该联系人有后台常驻连接，直接经 cmSendChat 发。
+      final connId = _alwaysConnIds[conversationId];
+      if (connId != null) {
+        try {
+          await gFFI.cmSendChat(connId: connId, msg: text);
+          return;
+        } catch (_) {
+          // 常连接异常则降级到会话/本地
+        }
+      }
+      // 2. 活跃远程会话兜底：仅当当前会话对端正是该联系人时经 sessionSendChat 发。
+      final sid = gFFI.sessionId;
+      if (sid != null && gFFI.id == conversationId) {
+        try {
+          await gFFI.sessionSendChat(sessionId: sid, text: text);
+        } catch (_) {}
+      }
+      // 否则仅本地留存（send() 已落库）
+    });
+  }
 
   /// 取某会话的消息列表（不存在则创建空桶，并惰性从本地加载）
   RxList<UiChatMessage> messagesOf(String conversationId) {

@@ -2316,6 +2316,35 @@ pub fn cm_send_chat(conn_id: i32, msg: String) {
     crate::ui_cm_interface::send_chat(conn_id, msg);
 }
 
+// ── LUODA: "chat-only" always-connected background connections ──
+
+pub fn start_chat_connection(peer_id: String) -> i32 {
+    #[cfg(not(any(target_os = "ios")))]
+    {
+        crate::ui_cm_interface::chat_conn_start(peer_id)
+    }
+    #[cfg(any(target_os = "ios"))]
+    {
+        0
+    }
+}
+
+pub fn stop_chat_connection(peer_id: String) {
+    #[cfg(not(any(target_os = "ios")))]
+    crate::ui_cm_interface::chat_conn_stop(peer_id);
+}
+
+pub fn is_chat_connected(peer_id: String) -> bool {
+    #[cfg(not(any(target_os = "ios")))]
+    {
+        crate::ui_cm_interface::chat_conn_is_connected(peer_id)
+    }
+    #[cfg(any(target_os = "ios"))]
+    {
+        false
+    }
+}
+
 pub fn cm_login_res(conn_id: i32, res: bool) {
     #[cfg(not(any(target_os = "ios")))]
     if res {

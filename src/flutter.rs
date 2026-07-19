@@ -1361,6 +1361,41 @@ pub fn session_add(
     Ok(session)
 }
 
+/// LUODA: start a background "chat-only" connection (controlling side) to `peer_id`.
+/// Creates a normal controlling `Session` but does NOT open any Flutter remote-desktop window,
+/// then registers it so `cm_send_chat(conn_id)` can route chat to the peer.
+/// Returns the cm conn id (0 if it could not be started).
+#[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+pub fn session_add_chat(peer_id: String) -> i32 {
+    let session_id = SessionID::new_v4();
+    let session = match session_add(
+        &session_id,
+        &peer_id,
+        false,
+        false,
+        false,
+        false,
+        false,
+        "",
+        false,
+        "".to_owned(),
+        false,
+        None,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("chat_conn: session_add failed for {}: {}", peer_id, e);
+            return 0;
+        }
+    };
+    let sess = (*session).clone();
+    std::thread::spawn(move || {
+        let round = sess.connection_round_state.lock().unwrap().new_round();
+        io_loop(sess, round);
+    });
+    crate::ui_cm_interface::register_chat_client(peer_id, session)
+}
+
 /// start a session with the given id.
 ///
 /// # Arguments
@@ -2351,5 +2386,8 @@ pub(super) mod async_tasks {
             super::APP_TYPE_MAIN,
             serde_json::ser::to_string(&data).unwrap_or("".to_owned()),
         );
+        // LUODA: maintain background "chat-only" connections for whitelisted, online peers.
+        #[cfg(all(feature = "flutter", not(any(target_os = "ios"))))]
+        crate::ui_cm_interface::chat_conn_reconcile(&onlines, &offlines);
     }
 }

@@ -1272,6 +1272,19 @@ abstract class Luoda {
 
   FlutterRustBridgeTaskConstMeta get kCmSendChatConstMeta;
 
+  // ── LUODA: "chat-only" always-connected background connections ──
+  Future<int> startChatConnection({required String peerId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kStartChatConnectionConstMeta;
+
+  Future<void> stopChatConnection({required String peerId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kStopChatConnectionConstMeta;
+
+  Future<bool> isChatConnected({required String peerId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kIsChatConnectedConstMeta;
+
   Future<void> cmLoginRes(
       {required int connId, required bool res, dynamic hint});
 
@@ -6256,6 +6269,58 @@ class LuodaImpl implements Luoda {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "cm_send_chat",
         argNames: ["connId", "msg"],
+      );
+
+  // ── LUODA: "chat-only" always-connected background connections ──
+  Future<int> startChatConnection({required String peerId, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(peerId);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_start_chat_connection(port_, arg0),
+      parseSuccessData: _wire2api_i32,
+      constMeta: kStartChatConnectionConstMeta,
+      argValues: [peerId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kStartChatConnectionConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "start_chat_connection",
+        argNames: ["peerId"],
+      );
+
+  Future<void> stopChatConnection({required String peerId, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(peerId);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_stop_chat_connection(port_, arg0),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kStopChatConnectionConstMeta,
+      argValues: [peerId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kStopChatConnectionConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "stop_chat_connection",
+        argNames: ["peerId"],
+      );
+
+  Future<bool> isChatConnected({required String peerId, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(peerId);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_is_chat_connected(port_, arg0),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kIsChatConnectedConstMeta,
+      argValues: [peerId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kIsChatConnectedConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "is_chat_connected",
+        argNames: ["peerId"],
       );
 
   Future<void> cmLoginRes(
@@ -12549,6 +12614,57 @@ class LuodaWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>)>>('wire_cm_send_chat');
   late final _wire_cm_send_chat = _wire_cm_send_chatPtr
       .asFunction<void Function(int, int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_start_chat_connection(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> peer_id,
+  ) {
+    return _wire_start_chat_connection(
+      port_,
+      peer_id,
+    );
+  }
+
+  late final _wire_start_chat_connectionPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>('wire_start_chat_connection');
+  late final _wire_start_chat_connection = _wire_start_chat_connectionPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_stop_chat_connection(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> peer_id,
+  ) {
+    return _wire_stop_chat_connection(
+      port_,
+      peer_id,
+    );
+  }
+
+  late final _wire_stop_chat_connectionPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>('wire_stop_chat_connection');
+  late final _wire_stop_chat_connection = _wire_stop_chat_connectionPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_is_chat_connected(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> peer_id,
+  ) {
+    return _wire_is_chat_connected(
+      port_,
+      peer_id,
+    );
+  }
+
+  late final _wire_is_chat_connectedPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>('wire_is_chat_connected');
+  late final _wire_is_chat_connected = _wire_is_chat_connectedPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_cm_login_res(
     int port_,

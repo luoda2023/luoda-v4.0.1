@@ -523,11 +523,11 @@ class _MainLayoutState extends State<MainLayout> {
             height: 7,
             margin: const EdgeInsets.only(right: 5),
             decoration: BoxDecoration(
-              color: c.isOnline ? AppColors.online : AppColors.textTertiary,
+              color: Color(c.permission.colorValue),
               shape: BoxShape.circle,
             ),
           ),
-          Text(c.isOnline ? '在线' : '离线',
+          Text(c.permission.label,
               style:
                   const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
         ],

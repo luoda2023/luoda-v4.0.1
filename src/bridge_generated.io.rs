@@ -1698,6 +1698,21 @@ pub extern "C" fn wire_cm_send_chat(port_: i64, conn_id: i32, msg: *mut wire_uin
 }
 
 #[no_mangle]
+pub extern "C" fn wire_start_chat_connection(port_: i64, peer_id: *mut wire_uint_8_list) {
+    wire_start_chat_connection_impl(port_, peer_id)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_stop_chat_connection(port_: i64, peer_id: *mut wire_uint_8_list) {
+    wire_stop_chat_connection_impl(port_, peer_id)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_is_chat_connected(port_: i64, peer_id: *mut wire_uint_8_list) {
+    wire_is_chat_connected_impl(port_, peer_id)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_cm_login_res(port_: i64, conn_id: i32, res: bool) {
     wire_cm_login_res_impl(port_, conn_id, res)
 }

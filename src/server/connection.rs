@@ -297,6 +297,8 @@ pub struct Connection {
     follow_remote_cursor: bool,
     follow_remote_window: bool,
     multi_ui_session: bool,
+    /// LUODA: lightweight "chat-only" background connection (no remote-desktop window).
+    is_chat_only: bool,
     tx_from_authed: mpsc::UnboundedSender<ipc::Data>,
     printer_data: Vec<(Instant, String, Vec<u8>)>,
     // For post requests that need to be sent sequentially.
@@ -440,6 +442,7 @@ impl Connection {
             follow_remote_cursor: false,
             follow_remote_window: false,
             multi_ui_session: false,
+            is_chat_only: false,
             ip: "".to_owned(),
             disable_audio: false,
             #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
@@ -1883,6 +1886,10 @@ impl Connection {
     }
 
     fn try_start_cm(&mut self, peer_id: String, name: String, authorized: bool) {
+        // LUODA: a connection from a peer in the local "always-receive-message" whitelist is
+        // treated as a lightweight chat-only background connection (no remote-desktop window).
+        self.is_chat_only =
+            crate::ui_cm_interface::is_chat_always_enabled() && crate::ui_cm_interface::is_in_chat_whitelist(&peer_id);
         self.send_to_cm(ipc::Data::Login {
             id: self.inner.id(),
             is_file_transfer: self.file_transfer.is_some(),
@@ -1902,6 +1909,7 @@ impl Connection {
             recording: self.recording,
             block_input: self.block_input,
             from_switch: self.from_switch,
+            is_chat_only: self.is_chat_only,
         });
     }
 

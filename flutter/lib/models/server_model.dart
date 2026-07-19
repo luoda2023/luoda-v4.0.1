@@ -16,6 +16,7 @@ import '../desktop/pages/server_page.dart' as desktop;
 import '../desktop/widgets/tabbar_widget.dart';
 import '../mobile/pages/server_page.dart';
 import 'model.dart';
+import 'package:luoda_flutter/ui/states/chat_message_state.dart';
 
 const kLoginDialogTag = "LOGIN";
 
@@ -563,6 +564,27 @@ class ServerModel with ChangeNotifier {
   void addConnection(Map<String, dynamic> evt) {
     try {
       final client = Client.fromJson(jsonDecode(evt["client"]));
+      // LUODA: a "chat-only" background connection must NOT open a remote-desktop window,
+      // but it must still be registered so cm_send_chat can resolve the peer's conn id.
+      if (client.isChatOnly) {
+        final index = _clients.indexWhere((c) => c.id == client.id);
+        if (index < 0) {
+          _clients.add(client);
+        } else {
+          _clients[index] = client;
+        }
+        parent.target?.chatModel
+            .updateConnIdOfKey(MessageKey(client.peerId, client.id));
+        // LUODA: 受控侧收到的常连接，把 connId 交给 ChatMessageState 用于回发路由。
+        try {
+          if (Get.isRegistered<ChatMessageState>()) {
+            Get.find<ChatMessageState>()
+                .setAlwaysConnection(client.peerId, client.id);
+          }
+        } catch (_) {}
+        notifyListeners();
+        return;
+      }
       if (client.authorized) {
         parent.target?.dialogManager.dismissByTag(getLoginDialogTag(client.id));
         final index = _clients.indexWhere((c) => c.id == client.id);
@@ -842,6 +864,8 @@ class Client {
   bool fromSwitch = false;
   bool inVoiceCall = false;
   bool incomingVoiceCall = false;
+  // LUODA: lightweight "chat-only" background connection (no remote-desktop window).
+  bool isChatOnly = false;
 
   RxInt unreadChatMessageCount = 0.obs;
 
@@ -870,6 +894,7 @@ class Client {
     fromSwitch = json['from_switch'];
     inVoiceCall = json['in_voice_call'];
     incomingVoiceCall = json['incoming_voice_call'];
+    isChatOnly = json['is_chat_only'] ?? false;
   }
 
   Map<String, dynamic> toJson() {
