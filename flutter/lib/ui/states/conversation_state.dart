@@ -291,15 +291,32 @@ class ConversationState extends GetxController {
  /// - name = peer.alias || peer.hostname || peer.id
  /// - lastMessage = '在线' / '离线' / '未知' 由 applyOnlineStates 填
  /// - avatarText = name 的第一个字符
+ /// LUODA: 改为「合并」而非「覆盖」——保留已有真实 peer 会话的聊天预览/未读/置顶，
+ /// 以及已绑定设备、手动联系人（原每 30s 覆盖式刷新会清掉这些状态，导致未读角标与
+ /// 聊天预览周期性消失）。仅当 peers 为空时才保留 mock 兜底。
  void reloadFromPeers(List<({String id, String alias, String hostname, String platform})> peers) {
  if (peers.isEmpty) {
  // 没有真实设备时,保留 mock 兜底
  return;
  }
- final list = peers.map((p) {
+ final Map<String, Conversation> merged = {};
+ // 1. 保留所有已有「真实 peer 会话」(peerId 非空)：聊天预览/未读/置顶/绑定设备/手动联系人
+ for (final c in conversations) {
+ if (c.peerId.isNotEmpty) merged[c.peerId] = c;
+ }
+ // 2. 合并本轮 hbbs peers：仅更新名称/平台，不覆盖预览/未读/置顶
+ for (final p in peers) {
  final name = (p.alias.isNotEmpty ? p.alias : (p.hostname.isNotEmpty ? p.hostname : p.id));
  final avatarText = name.isEmpty ? 'D' : name.substring(0, 1);
- return Conversation(
+ final existing = merged[p.id];
+ if (existing != null) {
+ merged[p.id] = existing.copyWith(
+ name: name,
+ avatarText: avatarText,
+ platform: p.platform.isNotEmpty ? p.platform : existing.platform,
+ );
+ } else {
+ merged[p.id] = Conversation(
  id: p.id,
  name: name,
  peerId: p.id,
@@ -308,8 +325,9 @@ class ConversationState extends GetxController {
  avatarText: avatarText,
  platform: p.platform,
  );
- }).toList();
- conversations.value = list;
+ }
+ }
+ conversations.value = merged.values.toList();
  }
 
   /// LUODA: 根据 hbbs 返回的在线 ID 列表,更新 conversations 的 isOnline 字段。
