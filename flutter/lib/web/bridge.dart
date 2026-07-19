@@ -775,6 +775,29 @@ class Luoda {
     return Future.value();
   }
 
+  // ── LUODA: 常连接后台通道（Web 端不支持 P2P，全部以 UnimplementedError 兜底，
+  //    调用方已用 try/catch 兜住，不影响 Web 编译与运行）──
+  Future<void> cmSendChat({required int connId, required String msg, dynamic hint}) {
+    throw UnimplementedError("cmSendChat");
+  }
+
+  Future<void> sessionSendChat(
+      {required int sessionId, required String text, dynamic hint}) {
+    throw UnimplementedError("sessionSendChat");
+  }
+
+  Future<int> startChatConnection({required String peerId, dynamic hint}) {
+    throw UnimplementedError("startChatConnection");
+  }
+
+  Future<void> stopChatConnection({required String peerId, dynamic hint}) {
+    throw UnimplementedError("stopChatConnection");
+  }
+
+  Future<bool> isChatConnected({required String peerId, dynamic hint}) {
+    throw UnimplementedError("isChatConnected");
+  }
+
   // get server settings
   Future<String> mainGetOptions({dynamic hint}) {
     return Future(() => mainGetOptionsSync());
